@@ -22,7 +22,6 @@ import { UsuarioModule } from './usuario/usuario.module';
         database: configService.get<string>('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
 
-        // ✅ Esto hace que las tablas se creen automáticamente
         synchronize: true,
 
         // Opcional: para ver las consultas SQL en consola
