@@ -4,11 +4,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsuarioModule } from './usuario/usuario.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // Hace que ConfigModule esté disponible globalmente
+      isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -21,15 +20,16 @@ import { UsuarioModule } from './usuario/usuario.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-
         synchronize: true,
-
-        // Opcional: para ver las consultas SQL en consola
         logging: true,
+
+        // 👇 ESTA ES LA PARTE CLAVE
+        ssl: {
+          rejectUnauthorized: false, // Acepta conexiones SSL sin validar el certificado
+        },
       }),
     }),
     UsuarioModule,
-  
   ],
 })
 export class AppModule {}
