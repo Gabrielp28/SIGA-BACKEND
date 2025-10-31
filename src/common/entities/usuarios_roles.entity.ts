@@ -13,9 +13,15 @@ export class UsuarioRol {
   @PrimaryGeneratedColumn()
   id_usuario_rol: number;
 
+  @Column({ name: 'id_usuario' })
+  id_usuario: number;
+
   @ManyToOne(() => Usuario)
   @JoinColumn({ name: 'id_usuario' })
   usuario: Usuario;
+
+  @Column({ name: 'id_rol' })
+  id_rol: number;
 
   @ManyToOne(() => Rol)
   @JoinColumn({ name: 'id_rol' })
