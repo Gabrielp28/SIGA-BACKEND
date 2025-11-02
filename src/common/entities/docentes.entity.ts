@@ -7,7 +7,7 @@ import {
   OneToMany
 } from 'typeorm';
 import { Usuario } from './usuarios.entity';
-import { Departamento } from './departamentos.entity';
+import { Departamento } from './departamentos.entity'; 
 import { CargoDocente } from './cargos_docentes.entity';
 import { CargaDocente } from './carga_docentes.entity';
 import { FormacionAcademica } from './formacion_academica.entity';

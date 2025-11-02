@@ -35,5 +35,5 @@ export class Carrera {
   estado: string;
 
   @OneToMany(() => Asignatura, asig => asig.carrera)
-  asignaturas: Asignatura[];
+  asignaturas: Asignatura[]; 
 }

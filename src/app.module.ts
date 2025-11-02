@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { UsuarioModule } from './usuario/usuario.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { CarreraModule } from './carrera/carrera.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     }),
     UsuarioModule,
     AuthModule,
+    CarreraModule,
   ],
   providers: [
     {
