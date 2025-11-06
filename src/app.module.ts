@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CarreraModule } from './carrera/carrera.module';
 import { DepartamentoModule } from './departamento/departamento.module';
 import { GrupoModule } from './grupo/grupo.module';
+import { AsignaturasModule } from './asignaturas/asignaturas.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GrupoModule } from './grupo/grupo.module';
     CarreraModule,
     DepartamentoModule,
     GrupoModule,
+    AsignaturasModule,
   ],
   providers: [
     {
