@@ -7,6 +7,7 @@ import { UsuarioModule } from './usuario/usuario.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CarreraModule } from './carrera/carrera.module';
+import { DepartamentoModule } from './departamento/departamento.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { CarreraModule } from './carrera/carrera.module';
     UsuarioModule,
     AuthModule,
     CarreraModule,
+    DepartamentoModule,
   ],
   providers: [
     {
