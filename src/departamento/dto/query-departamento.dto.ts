@@ -1,0 +1,68 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, IsInt, Min, Max, IsIn } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class QueryDepartamentoDto {
+  @ApiPropertyOptional({
+    description: 'Búsqueda por nombre o código del departamento',
+    example: 'Informática',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por estado',
+    example: 'activo',
+    enum: ['activo', 'inactivo'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['activo', 'inactivo'])
+  estado?: string;
+
+  @ApiPropertyOptional({
+    description: 'Campo por el cual ordenar',
+    example: 'nombre_departamento',
+    enum: ['nombre_departamento', 'codigo_departamento', 'id_departamento'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['nombre_departamento', 'codigo_departamento', 'id_departamento'])
+  orderBy?: string;
+
+  @ApiPropertyOptional({
+    description: 'Dirección del ordenamiento',
+    example: 'ASC',
+    enum: ['ASC', 'DESC'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['ASC', 'DESC'])
+  orderDirection?: 'ASC' | 'DESC';
+
+  @ApiPropertyOptional({
+    description: 'Número de página (para paginación)',
+    example: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({
+    description: 'Cantidad de elementos por página',
+    example: 10,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+

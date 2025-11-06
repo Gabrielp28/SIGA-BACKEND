@@ -30,7 +30,7 @@ export class Grupo {
 
   @ManyToOne(() => Docente, { nullable: true })
   @JoinColumn({ name: 'id_docente_titular' })
-  docente_titular: Docente;
+  docente_titular: Docente | null;
 
   @Column({ length: 15, default: 'activo' })
   estado: string;

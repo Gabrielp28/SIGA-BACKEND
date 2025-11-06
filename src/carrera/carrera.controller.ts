@@ -11,10 +11,11 @@ import {
 import { CarreraService } from './carrera.service';
 import { CreateCarreraDto } from './dto/create-carrera.dto';
 import { UpdateCarreraDto } from './dto/update-carrera.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Carreras')
 @Controller('carreras')
+@ApiBearerAuth()
 export class CarreraController { 
   constructor(private readonly carreraService: CarreraService) {}
 
@@ -22,6 +23,7 @@ export class CarreraController {
     //Crear una nueva carrera
 
   @Post()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear una nueva carrera' })
   @ApiResponse({ status: 201, description: 'Carrera creada exitosamente' })
   @ApiResponse({ status: 400, description: 'Error de validación o código duplicado' })
@@ -34,6 +36,7 @@ export class CarreraController {
     //Listar todas las carreras
   
   @Get()
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Listar todas las carreras' })
   @ApiResponse({ status: 200, description: 'Listado de carreras obtenido correctamente' })
   findAll() {
@@ -44,6 +47,7 @@ export class CarreraController {
     //Buscar una carrera por ID
 
   @Get(':id')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener una carrera por su ID' })
   @ApiParam({ name: 'id', description: 'ID de la carrera', example: 1 })
   @ApiResponse({ status: 200, description: 'Carrera encontrada exitosamente' })
@@ -56,6 +60,7 @@ export class CarreraController {
    //Actualizar una carrera
 
   @Put(':id')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Actualizar una carrera existente' })
   @ApiParam({ name: 'id', description: 'ID de la carrera', example: 1 })
   @ApiResponse({ status: 200, description: 'Carrera actualizada correctamente' })
@@ -72,6 +77,7 @@ export class CarreraController {
    //Eliminar una carrera
   
   @Delete(':id')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Eliminar una carrera por su ID' })
   @ApiParam({ name: 'id', description: 'ID de la carrera', example: 1 })
   @ApiResponse({ status: 200, description: 'Carrera eliminada correctamente' })
