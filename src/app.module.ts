@@ -10,6 +10,7 @@ import { CarreraModule } from './carrera/carrera.module';
 import { DepartamentoModule } from './departamento/departamento.module';
 import { GrupoModule } from './grupo/grupo.module';
 import { AsignaturasModule } from './asignaturas/asignaturas.module';
+import { DocenteModule } from './docente/docente.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AsignaturasModule } from './asignaturas/asignaturas.module';
     DepartamentoModule,
     GrupoModule,
     AsignaturasModule,
+    DocenteModule,
   ],
   providers: [
     {
