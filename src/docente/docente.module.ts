@@ -5,11 +5,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { CargoDocente } from 'src/common/entities/cargos_docentes.entity';
 import { Departamento } from 'src/common/entities/departamentos.entity';
-import { Usuario } from 'src/common/entities/usuarios.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Docente, CargoDocente, Departamento, Usuario]),
+    TypeOrmModule.forFeature([Docente, CargoDocente, Departamento]),
   ],
   controllers: [DocenteController],
   providers: [DocenteService],

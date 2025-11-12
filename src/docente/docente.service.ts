@@ -8,7 +8,6 @@ import { Repository } from 'typeorm';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { CargoDocente } from 'src/common/entities/cargos_docentes.entity';
 import { Departamento } from 'src/common/entities/departamentos.entity';
-import { Usuario } from 'src/common/entities/usuarios.entity';
 import { CreateDocenteDto } from './dto/create-docente.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { QueryDocenteDto } from './dto/query-docente.dto';
@@ -17,92 +16,75 @@ import { UpdateCargoDocenteDto } from './dto/update-cargo-docente.dto';
 
 @Injectable()
 export class DocenteService {
-    constructor(
-        @InjectRepository(Docente)
-        private readonly docenteRepo: Repository<Docente>,
-        @InjectRepository(CargoDocente)
-        private readonly cargoDocenteRepo: Repository<CargoDocente>,
-        @InjectRepository(Departamento)
-        private readonly departamentoRepo: Repository<Departamento>,
-        @InjectRepository(Usuario)
-        private readonly usuarioRepo: Repository<Usuario>,
-    ) { }
+  constructor(
+    @InjectRepository(Docente)
+    private readonly docenteRepo: Repository<Docente>,
+    @InjectRepository(CargoDocente)
+    private readonly cargoDocenteRepo: Repository<CargoDocente>,
+    @InjectRepository(Departamento)
+    private readonly departamentoRepo: Repository<Departamento>,
+  ) {}
 
     // ========== MÉTODOS PARA DOCENTES ==========
 
-    async create(createDto: CreateDocenteDto): Promise<Docente> {
-        const { codigo_docente, identificacion, id_departamento, id_cargo, id_usuario } = createDto;
+  async create(createDto: CreateDocenteDto): Promise<Docente> {
+    const { codigo_docente, identificacion, id_departamento, id_cargo } = createDto;
 
-        // Validar código único
-        const existeCodigo = await this.docenteRepo.findOne({
-            where: { codigo_docente },
-        });
-        if (existeCodigo) {
-            throw new BadRequestException(
-                `El código de docente '${codigo_docente}' ya está registrado`,
-            );
-        }
-
-        // Validar identificación única
-        const existeIdentificacion = await this.docenteRepo.findOne({
-            where: { identificacion },
-        });
-        if (existeIdentificacion) {
-            throw new BadRequestException(
-                `La identificación '${identificacion}' ya está registrada`,
-            );
-        }
-
-        // Validar departamento
-        const departamento = await this.departamentoRepo.findOne({
-            where: { id_departamento },
-        });
-        if (!departamento) {
-            throw new NotFoundException(
-                `Departamento con ID ${id_departamento} no encontrado`,
-            );
-        }
-
-        // Validar cargo docente
-        const cargo = await this.cargoDocenteRepo.findOne({
-            where: { id_cargo },
-        });
-        if (!cargo) {
-            throw new NotFoundException(
-                `Cargo docente con ID ${id_cargo} no encontrado`,
-            );
-        }
-
-        // Validar usuario si se proporciona
-        let usuario: Usuario | null = null;
-        if (id_usuario) {
-            usuario = await this.usuarioRepo.findOne({
-                where: { id_usuario },
-            });
-            if (!usuario) {
-                throw new NotFoundException(
-                    `Usuario con ID ${id_usuario} no encontrado`,
-                );
-            }
-        }
-
-        // Crear nuevo docente
-        const newDocente = this.docenteRepo.create({
-            ...createDto,
-            departamento,
-            cargo,
-            usuario: usuario || undefined,
-            estado: createDto.estado || 'activo',
-        });
-
-        return await this.docenteRepo.save(newDocente);
+    // Validar código único
+    const existeCodigo = await this.docenteRepo.findOne({
+      where: { codigo_docente },
+    });
+    if (existeCodigo) {
+      throw new BadRequestException(
+        `El código de docente '${codigo_docente}' ya está registrado`,
+      );
     }
 
-    async findAll(query?: QueryDocenteDto): Promise<Docente[] | { data: Docente[]; total: number; page: number; limit: number }> {
-        const queryBuilder = this.docenteRepo.createQueryBuilder('docente')
-            .leftJoinAndSelect('docente.departamento', 'departamento')
-            .leftJoinAndSelect('docente.cargo', 'cargo')
-            .leftJoinAndSelect('docente.usuario', 'usuario');
+    // Validar identificación única
+    const existeIdentificacion = await this.docenteRepo.findOne({
+      where: { identificacion },
+    });
+    if (existeIdentificacion) {
+      throw new BadRequestException(
+        `La identificación '${identificacion}' ya está registrada`,
+      );
+    }
+
+    // Validar departamento
+    const departamento = await this.departamentoRepo.findOne({
+      where: { id_departamento },
+    });
+    if (!departamento) {
+      throw new NotFoundException(
+        `Departamento con ID ${id_departamento} no encontrado`,
+      );
+    }
+
+    // Validar cargo docente
+    const cargo = await this.cargoDocenteRepo.findOne({
+      where: { id_cargo },
+    });
+    if (!cargo) {
+      throw new NotFoundException(
+        `Cargo docente con ID ${id_cargo} no encontrado`,
+      );
+    }
+
+    // Crear nuevo docente
+    const newDocente = this.docenteRepo.create({
+      ...createDto,
+      departamento,
+      cargo,
+      estado: createDto.estado || 'activo',
+    });
+
+    return await this.docenteRepo.save(newDocente);
+  }
+
+  async findAll(query?: QueryDocenteDto): Promise<Docente[] | { data: Docente[]; total: number; page: number; limit: number }> {
+    const queryBuilder = this.docenteRepo.createQueryBuilder('docente')
+      .leftJoinAndSelect('docente.departamento', 'departamento')
+      .leftJoinAndSelect('docente.cargo', 'cargo');
 
         // Búsqueda por nombre, apellido, código o identificación
         if (query?.search) {
@@ -164,31 +146,31 @@ export class DocenteService {
         return await queryBuilder.getMany();
     }
 
-    async findOne(id: number): Promise<Docente> {
-        const docente = await this.docenteRepo.findOne({
-            where: { id_docente: id },
-            relations: ['departamento', 'cargo', 'usuario'],
-        });
+  async findOne(id: number): Promise<Docente> {
+    const docente = await this.docenteRepo.findOne({
+      where: { id_docente: id },
+      relations: ['departamento', 'cargo'],
+    });
 
-        if (!docente) {
-            throw new NotFoundException(`Docente con ID ${id} no encontrado`);
-        }
-
-        return docente;
+    if (!docente) {
+      throw new NotFoundException(`Docente con ID ${id} no encontrado`);
     }
 
-    async findByCodigo(codigo: string): Promise<Docente> {
-        const docente = await this.docenteRepo.findOne({
-            where: { codigo_docente: codigo },
-            relations: ['departamento', 'cargo', 'usuario'],
-        });
+    return docente;
+  }
 
-        if (!docente) {
-            throw new NotFoundException(`Docente con código ${codigo} no encontrado`);
-        }
+  async findByCodigo(codigo: string): Promise<Docente> {
+    const docente = await this.docenteRepo.findOne({
+      where: { codigo_docente: codigo },
+      relations: ['departamento', 'cargo'],
+    });
 
-        return docente;
+    if (!docente) {
+      throw new NotFoundException(`Docente con código ${codigo} no encontrado`);
     }
+
+    return docente;
+  }
 
     async findByEstado(estado: string): Promise<Docente[]> {
         return await this.docenteRepo.find({
@@ -251,29 +233,10 @@ export class DocenteService {
             docente.cargo = cargo;
         }
 
-        // Validar usuario si se actualiza
-        if (updateDto.id_usuario !== undefined) {
-            if (updateDto.id_usuario) {
-                const usuario = await this.usuarioRepo.findOne({
-                    where: { id_usuario: updateDto.id_usuario },
-                });
-                if (!usuario) {
-                    throw new NotFoundException(
-                        `Usuario con ID ${updateDto.id_usuario} no encontrado`,
-                    );
-                }
-                docente.usuario = usuario;
-            } else {
-                // Si se quiere remover el usuario, usar undefined
-                docente.usuario = undefined as any;
-            }
-        }
-
         Object.assign(docente, {
             ...updateDto,
             id_departamento: undefined,
             id_cargo: undefined,
-            id_usuario: undefined,
         });
 
         return await this.docenteRepo.save(docente);

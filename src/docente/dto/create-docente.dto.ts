@@ -2,11 +2,6 @@ import { IsString, IsOptional, IsInt, IsDateString, MaxLength, IsNotEmpty } from
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateDocenteDto {
-  @ApiProperty({ description: 'ID del usuario asociado', example: 1, required: false })
-  @IsInt()
-  @IsOptional()
-  id_usuario?: number;
-
   @ApiProperty({ description: 'ID del departamento', example: 1 })
   @IsInt()
   @IsNotEmpty()
