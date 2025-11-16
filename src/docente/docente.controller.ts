@@ -15,7 +15,11 @@ import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { QueryDocenteDto } from './dto/query-docente.dto';
 import { CreateCargoDocenteDto } from './dto/create-cargo-docente.dto';
 import { UpdateCargoDocenteDto } from './dto/update-cargo-docente.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { CreateFormacionAcademicaDto } from './dto/create-formacion-academica.dto';
+import { UpdateFormacionAcademicaDto } from './dto/update-formacion-academica.dto';
+import { CreateExperienciaLaboralDto } from './dto/create-experiencia-laboral.dto';
+import { UpdateExperienciaLaboralDto } from './dto/update-experiencia-laboral.dto';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('Docentes')
 @Controller('docentes')
@@ -148,6 +152,118 @@ export class DocenteController {
   @ApiResponse({ status: 404, description: 'Cargo docente no encontrado' })
   removeCargo(@Param('id', ParseIntPipe) id: number) {
     return this.docenteService.removeCargo(id);
+  }
+
+  // ========== ENDPOINTS PARA FORMACIÓN ACADÉMICA ==========
+
+  @Post('formaciones')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Crear una nueva formación académica' })
+  @ApiResponse({ status: 201, description: 'Formación académica creada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Error de validación' })
+  @ApiResponse({ status: 404, description: 'Docente no encontrado' })
+  createFormacion(@Body() createFormacionDto: CreateFormacionAcademicaDto) {
+    return this.docenteService.createFormacion(createFormacionDto);
+  }
+
+  @Get('formaciones')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar todas las formaciones académicas' })
+  @ApiQuery({ name: 'idDocente', required: false, description: 'Filtrar por ID de docente', example: 1 })
+  @ApiResponse({ status: 200, description: 'Listado de formaciones académicas obtenido correctamente' })
+  findAllFormaciones(@Query('idDocente') idDocente?: number) {
+    const id = idDocente ? parseInt(idDocente.toString(), 10) : undefined;
+    return this.docenteService.findAllFormaciones(id);
+  }
+
+  @Get('formaciones/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtener una formación académica por su ID' })
+  @ApiParam({ name: 'id', description: 'ID de la formación académica', example: 1 })
+  @ApiResponse({ status: 200, description: 'Formación académica encontrada exitosamente' })
+  @ApiResponse({ status: 404, description: 'Formación académica no encontrada' })
+  findOneFormacion(@Param('id', ParseIntPipe) id: number) {
+    return this.docenteService.findOneFormacion(id);
+  }
+
+  @Put('formaciones/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar una formación académica existente' })
+  @ApiParam({ name: 'id', description: 'ID de la formación académica', example: 1 })
+  @ApiResponse({ status: 200, description: 'Formación académica actualizada correctamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Formación académica o docente no encontrado' })
+  updateFormacion(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateFormacionDto: UpdateFormacionAcademicaDto,
+  ) {
+    return this.docenteService.updateFormacion(id, updateFormacionDto);
+  }
+
+  @Delete('formaciones/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eliminar una formación académica por su ID' })
+  @ApiParam({ name: 'id', description: 'ID de la formación académica', example: 1 })
+  @ApiResponse({ status: 200, description: 'Formación académica eliminada correctamente' })
+  @ApiResponse({ status: 404, description: 'Formación académica no encontrada' })
+  removeFormacion(@Param('id', ParseIntPipe) id: number) {
+    return this.docenteService.removeFormacion(id);
+  }
+
+  // ========== ENDPOINTS PARA EXPERIENCIA LABORAL ==========
+
+  @Post('experiencias')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Crear una nueva experiencia laboral' })
+  @ApiResponse({ status: 201, description: 'Experiencia laboral creada exitosamente' })
+  @ApiResponse({ status: 400, description: 'Error de validación' })
+  @ApiResponse({ status: 404, description: 'Docente no encontrado' })
+  createExperiencia(@Body() createExperienciaDto: CreateExperienciaLaboralDto) {
+    return this.docenteService.createExperiencia(createExperienciaDto);
+  }
+
+  @Get('experiencias')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Listar todas las experiencias laborales' })
+  @ApiQuery({ name: 'idDocente', required: false, description: 'Filtrar por ID de docente', example: 1 })
+  @ApiResponse({ status: 200, description: 'Listado de experiencias laborales obtenido correctamente' })
+  findAllExperiencias(@Query('idDocente') idDocente?: number) {
+    const id = idDocente ? parseInt(idDocente.toString(), 10) : undefined;
+    return this.docenteService.findAllExperiencias(id);
+  }
+
+  @Get('experiencias/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtener una experiencia laboral por su ID' })
+  @ApiParam({ name: 'id', description: 'ID de la experiencia laboral', example: 1 })
+  @ApiResponse({ status: 200, description: 'Experiencia laboral encontrada exitosamente' })
+  @ApiResponse({ status: 404, description: 'Experiencia laboral no encontrada' })
+  findOneExperiencia(@Param('id', ParseIntPipe) id: number) {
+    return this.docenteService.findOneExperiencia(id);
+  }
+
+  @Put('experiencias/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar una experiencia laboral existente' })
+  @ApiParam({ name: 'id', description: 'ID de la experiencia laboral', example: 1 })
+  @ApiResponse({ status: 200, description: 'Experiencia laboral actualizada correctamente' })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 404, description: 'Experiencia laboral o docente no encontrado' })
+  updateExperiencia(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateExperienciaDto: UpdateExperienciaLaboralDto,
+  ) {
+    return this.docenteService.updateExperiencia(id, updateExperienciaDto);
+  }
+
+  @Delete('experiencias/:id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eliminar una experiencia laboral por su ID' })
+  @ApiParam({ name: 'id', description: 'ID de la experiencia laboral', example: 1 })
+  @ApiResponse({ status: 200, description: 'Experiencia laboral eliminada correctamente' })
+  @ApiResponse({ status: 404, description: 'Experiencia laboral no encontrada' })
+  removeExperiencia(@Param('id', ParseIntPipe) id: number) {
+    return this.docenteService.removeExperiencia(id);
   }
 }
 

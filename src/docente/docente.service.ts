@@ -8,11 +8,17 @@ import { Repository } from 'typeorm';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { CargoDocente } from 'src/common/entities/cargos_docentes.entity';
 import { Departamento } from 'src/common/entities/departamentos.entity';
+import { FormacionAcademica } from 'src/common/entities/formacion_academica.entity';
+import { ExperienciaLaboral } from 'src/common/entities/experiencia_laboral.entity';
 import { CreateDocenteDto } from './dto/create-docente.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { QueryDocenteDto } from './dto/query-docente.dto';
 import { CreateCargoDocenteDto } from './dto/create-cargo-docente.dto';
 import { UpdateCargoDocenteDto } from './dto/update-cargo-docente.dto';
+import { CreateFormacionAcademicaDto } from './dto/create-formacion-academica.dto';
+import { UpdateFormacionAcademicaDto } from './dto/update-formacion-academica.dto';
+import { CreateExperienciaLaboralDto } from './dto/create-experiencia-laboral.dto';
+import { UpdateExperienciaLaboralDto } from './dto/update-experiencia-laboral.dto';
 
 @Injectable()
 export class DocenteService {
@@ -23,6 +29,10 @@ export class DocenteService {
     private readonly cargoDocenteRepo: Repository<CargoDocente>,
     @InjectRepository(Departamento)
     private readonly departamentoRepo: Repository<Departamento>,
+    @InjectRepository(FormacionAcademica)
+    private readonly formacionAcademicaRepo: Repository<FormacionAcademica>,
+    @InjectRepository(ExperienciaLaboral)
+    private readonly experienciaLaboralRepo: Repository<ExperienciaLaboral>,
   ) {}
 
     // ========== MÉTODOS PARA DOCENTES ==========
@@ -84,7 +94,9 @@ export class DocenteService {
   async findAll(query?: QueryDocenteDto): Promise<Docente[] | { data: Docente[]; total: number; page: number; limit: number }> {
     const queryBuilder = this.docenteRepo.createQueryBuilder('docente')
       .leftJoinAndSelect('docente.departamento', 'departamento')
-      .leftJoinAndSelect('docente.cargo', 'cargo');
+      .leftJoinAndSelect('docente.cargo', 'cargo')
+      .leftJoinAndSelect('docente.formaciones', 'formaciones')
+      .leftJoinAndSelect('docente.experiencias', 'experiencias');
 
         // Búsqueda por nombre, apellido, código o identificación
         if (query?.search) {
@@ -149,7 +161,7 @@ export class DocenteService {
   async findOne(id: number): Promise<Docente> {
     const docente = await this.docenteRepo.findOne({
       where: { id_docente: id },
-      relations: ['departamento', 'cargo'],
+      relations: ['departamento', 'cargo', 'formaciones', 'experiencias'],
     });
 
     if (!docente) {
@@ -162,7 +174,7 @@ export class DocenteService {
   async findByCodigo(codigo: string): Promise<Docente> {
     const docente = await this.docenteRepo.findOne({
       where: { codigo_docente: codigo },
-      relations: ['departamento', 'cargo'],
+      relations: ['departamento', 'cargo', 'formaciones', 'experiencias'],
     });
 
     if (!docente) {
@@ -175,7 +187,7 @@ export class DocenteService {
     async findByEstado(estado: string): Promise<Docente[]> {
         return await this.docenteRepo.find({
             where: { estado },
-            relations: ['departamento', 'cargo'],
+            relations: ['departamento', 'cargo', 'formaciones', 'experiencias'],
             order: { nombres: 'ASC' },
         });
     }
@@ -324,6 +336,172 @@ export class DocenteService {
         }
 
         await this.cargoDocenteRepo.remove(cargo);
+    }
+
+    // ========== MÉTODOS PARA FORMACIÓN ACADÉMICA ==========
+
+    async createFormacion(createDto: CreateFormacionAcademicaDto): Promise<FormacionAcademica> {
+        const { id_docente } = createDto;
+
+        // Validar que el docente existe
+        const docente = await this.docenteRepo.findOne({
+            where: { id_docente },
+        });
+        if (!docente) {
+            throw new NotFoundException(`Docente con ID ${id_docente} no encontrado`);
+        }
+
+        const newFormacion = this.formacionAcademicaRepo.create({
+            ...createDto,
+            docente,
+        });
+
+        return await this.formacionAcademicaRepo.save(newFormacion);
+    }
+
+    async findAllFormaciones(idDocente?: number): Promise<FormacionAcademica[]> {
+        const queryBuilder = this.formacionAcademicaRepo
+            .createQueryBuilder('formacion')
+            .leftJoinAndSelect('formacion.docente', 'docente');
+
+        if (idDocente) {
+            queryBuilder.where('formacion.id_docente = :idDocente', { idDocente });
+        }
+
+        return await queryBuilder.getMany();
+    }
+
+    async findOneFormacion(id: number): Promise<FormacionAcademica> {
+        const formacion = await this.formacionAcademicaRepo.findOne({
+            where: { id_formacion: id },
+            relations: ['docente'],
+        });
+
+        if (!formacion) {
+            throw new NotFoundException(`Formación académica con ID ${id} no encontrada`);
+        }
+
+        return formacion;
+    }
+
+    async updateFormacion(id: number, updateDto: UpdateFormacionAcademicaDto): Promise<FormacionAcademica> {
+        const formacion = await this.findOneFormacion(id);
+
+        // Validar docente si se actualiza
+        if (updateDto.id_docente) {
+            const docente = await this.docenteRepo.findOne({
+                where: { id_docente: updateDto.id_docente },
+            });
+            if (!docente) {
+                throw new NotFoundException(
+                    `Docente con ID ${updateDto.id_docente} no encontrado`,
+                );
+            }
+            formacion.docente = docente;
+        }
+
+        Object.assign(formacion, {
+            ...updateDto,
+            id_docente: undefined,
+        });
+
+        return await this.formacionAcademicaRepo.save(formacion);
+    }
+
+    async removeFormacion(id: number): Promise<void> {
+        const formacion = await this.findOneFormacion(id);
+        await this.formacionAcademicaRepo.remove(formacion);
+    }
+
+    // ========== MÉTODOS PARA EXPERIENCIA LABORAL ==========
+
+    async createExperiencia(createDto: CreateExperienciaLaboralDto): Promise<ExperienciaLaboral> {
+        const { id_docente, fecha_inicio, fecha_fin, descripcion_funciones, cargo_ejercido, institucion_empresa } = createDto;
+
+        // Validar que el docente existe
+        const docente = await this.docenteRepo.findOne({
+            where: { id_docente },
+        });
+        if (!docente) {
+            throw new NotFoundException(`Docente con ID ${id_docente} no encontrado`);
+        }
+
+        const newExperiencia = this.experienciaLaboralRepo.create({
+            cargo_ejercido,
+            institucion_empresa,
+            descripcion_funciones,
+            docente,
+            fecha_inicio: new Date(fecha_inicio),
+            fecha_fin: fecha_fin ? new Date(fecha_fin) : (null as any),
+        });
+
+        return await this.experienciaLaboralRepo.save(newExperiencia);
+    }
+
+    async findAllExperiencias(idDocente?: number): Promise<ExperienciaLaboral[]> {
+        const queryBuilder = this.experienciaLaboralRepo
+            .createQueryBuilder('experiencia')
+            .leftJoinAndSelect('experiencia.docente', 'docente');
+
+        if (idDocente) {
+            queryBuilder.where('experiencia.id_docente = :idDocente', { idDocente });
+        }
+
+        queryBuilder.orderBy('experiencia.fecha_inicio', 'DESC');
+
+        return await queryBuilder.getMany();
+    }
+
+    async findOneExperiencia(id: number): Promise<ExperienciaLaboral> {
+        const experiencia = await this.experienciaLaboralRepo.findOne({
+            where: { id_experiencia: id },
+            relations: ['docente'],
+        });
+
+        if (!experiencia) {
+            throw new NotFoundException(`Experiencia laboral con ID ${id} no encontrada`);
+        }
+
+        return experiencia;
+    }
+
+    async updateExperiencia(id: number, updateDto: UpdateExperienciaLaboralDto): Promise<ExperienciaLaboral> {
+        const experiencia = await this.findOneExperiencia(id);
+
+        // Validar docente si se actualiza
+        if (updateDto.id_docente) {
+            const docente = await this.docenteRepo.findOne({
+                where: { id_docente: updateDto.id_docente },
+            });
+            if (!docente) {
+                throw new NotFoundException(
+                    `Docente con ID ${updateDto.id_docente} no encontrado`,
+                );
+            }
+            experiencia.docente = docente;
+        }
+
+        // Convertir fechas si se actualizan
+        if (updateDto.fecha_inicio) {
+            experiencia.fecha_inicio = new Date(updateDto.fecha_inicio);
+        }
+        if (updateDto.fecha_fin !== undefined) {
+            experiencia.fecha_fin = updateDto.fecha_fin ? new Date(updateDto.fecha_fin) : (null as any);
+        }
+
+        Object.assign(experiencia, {
+            ...updateDto,
+            id_docente: undefined,
+            fecha_inicio: undefined,
+            fecha_fin: undefined,
+        });
+
+        return await this.experienciaLaboralRepo.save(experiencia);
+    }
+
+    async removeExperiencia(id: number): Promise<void> {
+        const experiencia = await this.findOneExperiencia(id);
+        await this.experienciaLaboralRepo.remove(experiencia);
     }
 }
 
