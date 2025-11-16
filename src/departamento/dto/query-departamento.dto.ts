@@ -48,8 +48,8 @@ export class QueryDepartamentoDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'page debe ser un número entero válido' })
+  @Min(1, { message: 'page debe ser mayor o igual a 1' })
   page?: number;
 
   @ApiPropertyOptional({
@@ -60,9 +60,9 @@ export class QueryDepartamentoDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
+  @IsInt({ message: 'limit debe ser un número entero válido' })
+  @Min(1, { message: 'limit debe ser mayor o igual a 1' })
+  @Max(100, { message: 'limit debe ser menor o igual a 100' })
   limit?: number;
 }
 
