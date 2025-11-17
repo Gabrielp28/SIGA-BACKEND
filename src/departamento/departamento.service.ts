@@ -22,50 +22,58 @@ export class DepartamentoService {
   }
 
   async findAll(query?: QueryDepartamentoDto): Promise<Departamento[] | { data: Departamento[]; total: number; page: number; limit: number }> {
-    const queryBuilder = this.departamentoRepo.createQueryBuilder('departamento');
+    try {
+      const queryBuilder = this.departamentoRepo.createQueryBuilder('departamento');
 
-    // Búsqueda por nombre o código
-    if (query?.search) {
-      queryBuilder.where(
-        '(departamento.nombre_departamento ILIKE :search OR departamento.codigo_departamento ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
-    }
-
-    // Filtro por estado
-    if (query?.estado) {
+      // Búsqueda por nombre o código
       if (query?.search) {
-        queryBuilder.andWhere('departamento.estado = :estado', { estado: query.estado });
-      } else {
-        queryBuilder.where('departamento.estado = :estado', { estado: query.estado });
+        queryBuilder.where(
+          '(departamento.nombre_departamento ILIKE :search OR departamento.codigo_departamento ILIKE :search)',
+          { search: `%${query.search}%` },
+        );
       }
+
+      // Filtro por estado
+      if (query?.estado) {
+        if (query?.search) {
+          queryBuilder.andWhere('departamento.estado = :estado', { estado: query.estado });
+        } else {
+          queryBuilder.where('departamento.estado = :estado', { estado: query.estado });
+        }
+      }
+
+      // Ordenamiento - validar que el campo sea válido
+      const validOrderFields = ['nombre_departamento', 'codigo_departamento', 'id_departamento'];
+      const orderBy = query?.orderBy && validOrderFields.includes(query.orderBy) 
+        ? query.orderBy 
+        : 'nombre_departamento';
+      const orderDirection = query?.orderDirection === 'DESC' ? 'DESC' : 'ASC';
+      queryBuilder.orderBy(`departamento.${orderBy}`, orderDirection);
+
+      // Paginación - asegurar que los valores sean números válidos
+      const page = query?.page ? Number(query.page) : undefined;
+      const limit = query?.limit ? Number(query.limit) : undefined;
+
+      if (page && limit && !isNaN(page) && !isNaN(limit) && page > 0 && limit > 0) {
+        const skip = (page - 1) * limit;
+        queryBuilder.skip(skip).take(limit);
+
+        const [data, total] = await queryBuilder.getManyAndCount();
+
+        return {
+          data,
+          total,
+          page,
+          limit,
+        };
+      }
+
+      // Sin paginación, retornar todos
+      return await queryBuilder.getMany();
+    } catch (error) {
+      console.error('Error en findAll de departamentos:', error);
+      throw error;
     }
-
-    // Ordenamiento
-    const orderBy = query?.orderBy || 'nombre_departamento';
-    const orderDirection = query?.orderDirection || 'ASC';
-    queryBuilder.orderBy(`departamento.${orderBy}`, orderDirection);
-
-    // Paginación
-    if (query?.page && query?.limit) {
-      const page = query.page;
-      const limit = query.limit;
-      const skip = (page - 1) * limit;
-
-      queryBuilder.skip(skip).take(limit);
-
-      const [data, total] = await queryBuilder.getManyAndCount();
-
-      return {
-        data,
-        total,
-        page,
-        limit,
-      };
-    }
-
-    // Sin paginación, retornar todos
-    return await queryBuilder.getMany();
   }
 
   async findOne(id: number): Promise<Departamento> {

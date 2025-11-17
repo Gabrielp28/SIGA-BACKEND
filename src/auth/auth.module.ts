@@ -8,12 +8,13 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsuarioModule } from '../usuario/usuario.module';
 import { UsuarioRol } from '../common/entities/usuarios_roles.entity';
+import { Rol } from '../common/entities/roles.entity';
 
 @Module({
   imports: [
     UsuarioModule,
     PassportModule,
-    TypeOrmModule.forFeature([UsuarioRol]),
+    TypeOrmModule.forFeature([UsuarioRol, Rol]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -12,6 +12,7 @@ import { GrupoModule } from './grupo/grupo.module';
 import { AsignaturasModule } from './asignaturas/asignaturas.module';
 import { DocenteModule } from './docente/docente.module';
 import { CargaDocenteModule } from './carga-docente/carga-docente.module';
+import { RolModule } from './rol/rol.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { CargaDocenteModule } from './carga-docente/carga-docente.module';
     AsignaturasModule,
     DocenteModule,
     CargaDocenteModule,
+    RolModule,
   ],
   providers: [
     {

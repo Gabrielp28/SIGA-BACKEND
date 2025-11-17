@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,7 @@ import { Usuario } from '../common/entities/usuarios.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsuarioRol } from '../common/entities/usuarios_roles.entity';
+import { Rol } from '../common/entities/roles.entity';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,8 @@ export class AuthService {
     private configService: ConfigService,
     @InjectRepository(UsuarioRol)
     private usuarioRolRepository: Repository<UsuarioRol>,
+    @InjectRepository(Rol)
+    private rolRepository: Repository<Rol>,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -99,11 +103,31 @@ export class AuthService {
       throw new ConflictException('El email ya está en uso');
     }
 
+    // Verificar que el rol existe
+    const rol = await this.rolRepository.findOne({
+      where: { nombre_rol: registerDto.rol },
+    });
+
+    if (!rol) {
+      throw new NotFoundException(
+        `El rol ${registerDto.rol} no existe en el sistema`,
+      );
+    }
+
     // Crear usuario
     const user = await this.usuarioService.create(registerDto);
 
-    // Obtener roles (vacío por defecto)
-    const roles: string[] = [];
+    // Asignar rol al usuario
+    const usuarioRol = this.usuarioRolRepository.create({
+      id_usuario: user.id_usuario,
+      id_rol: rol.id_rol,
+      estado: 'activo',
+    });
+
+    await this.usuarioRolRepository.save(usuarioRol);
+
+    // Obtener roles del usuario
+    const roles: string[] = [rol.nombre_rol];
 
     const payload = {
       sub: user.id_usuario,

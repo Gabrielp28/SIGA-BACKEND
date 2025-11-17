@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsInt, Min, Max, IsIn } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class QueryDepartamentoDto {
   @ApiPropertyOptional({
@@ -47,7 +47,13 @@ export class QueryDepartamentoDto {
     minimum: 1,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    const num = Number(value);
+    return isNaN(num) ? undefined : num;
+  })
   @IsInt({ message: 'page debe ser un número entero válido' })
   @Min(1, { message: 'page debe ser mayor o igual a 1' })
   page?: number;
@@ -59,7 +65,13 @@ export class QueryDepartamentoDto {
     maximum: 100,
   })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+    const num = Number(value);
+    return isNaN(num) ? undefined : num;
+  })
   @IsInt({ message: 'limit debe ser un número entero válido' })
   @Min(1, { message: 'limit debe ser mayor o igual a 1' })
   @Max(100, { message: 'limit debe ser menor o igual a 100' })

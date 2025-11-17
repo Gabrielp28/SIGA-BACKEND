@@ -48,8 +48,16 @@ export class DepartamentoController {
       },
     },
   })
-  findAll(@Query() query: QueryDepartamentoDto) {
-    return this.deptoService.findAll(query);
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async findAll(@Query() query: QueryDepartamentoDto) {
+    try {
+      return await this.deptoService.findAll(query);
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Get('codigo/:codigo')
