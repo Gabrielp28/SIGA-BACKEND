@@ -26,23 +26,16 @@ export class CargaDocenteService {
   async create(createDto: CreateCargaDocenteDto): Promise<CargaDocente> {
     const { id_docente, id_grupo } = createDto;
 
-    // Validar que el docente existe
-    const docente = await this.docenteRepo.findOne({
-      where: { id_docente },
-    });
+    const docente = await this.docenteRepo.findOne({ where: { id_docente } });
     if (!docente) {
       throw new NotFoundException(`Docente con ID ${id_docente} no encontrado`);
     }
 
-    // Validar que el grupo existe
-    const grupo = await this.grupoRepo.findOne({
-      where: { id_grupo },
-    });
+    const grupo = await this.grupoRepo.findOne({ where: { id_grupo } });
     if (!grupo) {
       throw new NotFoundException(`Grupo con ID ${id_grupo} no encontrado`);
     }
 
-    // Verificar si ya existe una carga activa para este docente y grupo
     const cargaExistente = await this.cargaDocenteRepo.findOne({
       where: {
         docente: { id_docente },
@@ -58,7 +51,6 @@ export class CargaDocenteService {
       );
     }
 
-    // Validar tipo de vinculación
     const tiposValidos = ['titular', 'suplente', 'auxiliar', 'coordinador'];
     const tipoVinculacion = createDto.tipo_vinculacion || 'titular';
     if (!tiposValidos.includes(tipoVinculacion)) {
@@ -67,7 +59,6 @@ export class CargaDocenteService {
       );
     }
 
-    // Validar estado
     const estadosValidos = ['asignada', 'finalizada', 'cancelada'];
     const estado = createDto.estado || 'asignada';
     if (!estadosValidos.includes(estado)) {
@@ -100,61 +91,46 @@ export class CargaDocenteService {
       .leftJoinAndSelect('grupo.asignatura', 'asignatura')
       .leftJoinAndSelect('asignatura.carrera', 'carrera');
 
-    // Construir condiciones de filtro de manera más eficiente
     const conditions: string[] = [];
     const parameters: Record<string, any> = {};
 
-    // Filtro por docente
     if (query?.idDocente) {
       conditions.push('carga.id_docente = :idDocente');
       parameters.idDocente = query.idDocente;
     }
 
-    // Filtro por grupo
     if (query?.idGrupo) {
       conditions.push('carga.id_grupo = :idGrupo');
       parameters.idGrupo = query.idGrupo;
     }
 
-    // Filtro por tipo de vinculación
     if (query?.tipo_vinculacion) {
       conditions.push('carga.tipo_vinculacion = :tipo_vinculacion');
       parameters.tipo_vinculacion = query.tipo_vinculacion;
     }
 
-    // Filtro por estado
     if (query?.estado) {
       conditions.push('carga.estado = :estado');
       parameters.estado = query.estado;
     }
 
-    // Aplicar todas las condiciones
     if (conditions.length > 0) {
       queryBuilder.where(conditions.join(' AND '), parameters);
     }
 
-    // Ordenamiento
     queryBuilder.orderBy('carga.fecha_asignacion', 'DESC');
 
-    // Paginación
     if (query?.page && query?.limit) {
-      const page = Math.max(1, query.page); // Asegurar que page sea al menos 1
-      const limit = Math.min(100, Math.max(1, query.limit)); // Limitar a máximo 100
+      const page = Math.max(1, query.page);
+      const limit = Math.min(100, Math.max(1, query.limit));
       const skip = (page - 1) * limit;
 
       queryBuilder.skip(skip).take(limit);
 
       const [data, total] = await queryBuilder.getManyAndCount();
-
-      return {
-        data,
-        total,
-        page,
-        limit,
-      };
+      return { data, total, page, limit };
     }
 
-    // Sin paginación, retornar todos
     return await queryBuilder.getMany();
   }
 
@@ -182,7 +158,6 @@ export class CargaDocenteService {
   ): Promise<CargaDocente> {
     const carga = await this.findOne(id);
 
-    // Validar docente si se actualiza
     if (updateDto.id_docente) {
       const docente = await this.docenteRepo.findOne({
         where: { id_docente: updateDto.id_docente },
@@ -195,7 +170,6 @@ export class CargaDocenteService {
       carga.docente = docente;
     }
 
-    // Validar grupo si se actualiza
     if (updateDto.id_grupo) {
       const grupo = await this.grupoRepo.findOne({
         where: { id_grupo: updateDto.id_grupo },
@@ -222,9 +196,7 @@ export class CargaDocenteService {
     await this.cargaDocenteRepo.remove(carga);
   }
 
-  // Método útil: Obtener todas las cargas de un docente
   async getCargasByDocente(idDocente: number): Promise<CargaDocente[]> {
-    // Validar que el docente existe
     const docente = await this.docenteRepo.findOne({
       where: { id_docente: idDocente },
     });
@@ -233,26 +205,19 @@ export class CargaDocenteService {
     }
 
     const result = await this.findAll({ idDocente });
-    // Si findAll retorna un objeto con paginación, extraer el array
     return Array.isArray(result) ? result : result.data;
   }
 
-  // Método útil: Obtener todos los docentes asignados a un grupo
   async getDocentesByGrupo(idGrupo: number): Promise<CargaDocente[]> {
-    // Validar que el grupo existe
-    const grupo = await this.grupoRepo.findOne({
-      where: { id_grupo: idGrupo },
-    });
+    const grupo = await this.grupoRepo.findOne({ where: { id_grupo: idGrupo } });
     if (!grupo) {
       throw new NotFoundException(`Grupo con ID ${idGrupo} no encontrado`);
     }
 
     const result = await this.findAll({ idGrupo });
-    // Si findAll retorna un objeto con paginación, extraer el array
     return Array.isArray(result) ? result : result.data;
   }
 
-  // Método útil: Obtener cargas activas de un docente
   async getCargasActivasByDocente(idDocente: number): Promise<CargaDocente[]> {
     const docente = await this.docenteRepo.findOne({
       where: { id_docente: idDocente },
@@ -266,12 +231,16 @@ export class CargaDocenteService {
         docente: { id_docente: idDocente },
         estado: 'asignada',
       },
-      relations: ['docente', 'grupo', 'grupo.asignatura', 'grupo.asignatura.carrera'],
+      relations: [
+        'docente',
+        'grupo',
+        'grupo.asignatura',
+        'grupo.asignatura.carrera',
+      ],
       order: { fecha_asignacion: 'DESC' },
     });
   }
 
-  // Método útil: Contar cargas activas de un docente
   async countCargasActivasByDocente(idDocente: number): Promise<number> {
     return await this.cargaDocenteRepo.count({
       where: {
@@ -281,12 +250,10 @@ export class CargaDocenteService {
     });
   }
 
-  // Método útil: Verificar si un docente puede ser asignado a un grupo
   async canAssignDocenteToGrupo(
     idDocente: number,
     idGrupo: number,
   ): Promise<{ canAssign: boolean; reason?: string }> {
-    // Verificar si el docente existe
     const docente = await this.docenteRepo.findOne({
       where: { id_docente: idDocente },
     });
@@ -294,7 +261,6 @@ export class CargaDocenteService {
       return { canAssign: false, reason: 'Docente no encontrado' };
     }
 
-    // Verificar si el grupo existe
     const grupo = await this.grupoRepo.findOne({
       where: { id_grupo: idGrupo },
     });
@@ -302,7 +268,6 @@ export class CargaDocenteService {
       return { canAssign: false, reason: 'Grupo no encontrado' };
     }
 
-    // Verificar si ya existe una carga activa
     const cargaExistente = await this.cargaDocenteRepo.findOne({
       where: {
         docente: { id_docente: idDocente },
@@ -321,7 +286,7 @@ export class CargaDocenteService {
     return { canAssign: true };
   }
 
-  // Método útil: Finalizar todas las cargas de un periodo académico
+  // FIX APLICADO: TABLA CON MAYÚSCULAS → "Tbl_Grupos"
   async finalizarCargasByPeriodo(periodoAcademico: string): Promise<number> {
     const result = await this.cargaDocenteRepo
       .createQueryBuilder('carga')
@@ -329,7 +294,7 @@ export class CargaDocenteService {
       .set({ estado: 'finalizada' })
       .where('carga.estado = :estado', { estado: 'asignada' })
       .andWhere(
-        'carga.id_grupo IN (SELECT id_grupo FROM Tbl_Grupos WHERE periodo_academico = :periodo)',
+        'carga.id_grupo IN (SELECT id_grupo FROM "Tbl_Grupos" WHERE periodo_academico = :periodo)',
         { periodo: periodoAcademico },
       )
       .execute();
@@ -337,4 +302,3 @@ export class CargaDocenteService {
     return result.affected || 0;
   }
 }
-
