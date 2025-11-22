@@ -10,6 +10,7 @@ import { CargoDocente } from 'src/common/entities/cargos_docentes.entity';
 import { Departamento } from 'src/common/entities/departamentos.entity';
 import { FormacionAcademica } from 'src/common/entities/formacion_academica.entity';
 import { ExperienciaLaboral } from 'src/common/entities/experiencia_laboral.entity';
+import { StorageService } from 'src/storage/storage.service';
 import { CreateDocenteDto } from './dto/create-docente.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { QueryDocenteDto } from './dto/query-docente.dto';
@@ -33,6 +34,7 @@ export class DocenteService {
     private readonly formacionAcademicaRepo: Repository<FormacionAcademica>,
     @InjectRepository(ExperienciaLaboral)
     private readonly experienciaLaboralRepo: Repository<ExperienciaLaboral>,
+    private readonly storageService: StorageService,
   ) {}
 
     // ========== MÉTODOS PARA DOCENTES ==========
@@ -257,6 +259,61 @@ export class DocenteService {
     async remove(id: number): Promise<void> {
         const docente = await this.findOne(id);
         await this.docenteRepo.remove(docente);
+    }
+
+    // ========== MÉTODOS PARA FOTO DE PERFIL ==========
+
+    async uploadFotoPerfil(
+        id: number,
+        file: Express.Multer.File,
+    ): Promise<Docente> {
+        const docente = await this.findOne(id);
+
+        // Eliminar foto anterior si existe
+        if (docente.foto_perfil) {
+            try {
+                // Extraer el path del archivo de la URL de Supabase
+                const urlParts = docente.foto_perfil.split('/');
+                const publicIndex = urlParts.indexOf('public');
+                if (publicIndex !== -1 && publicIndex < urlParts.length - 1) {
+                    const filePath = urlParts.slice(publicIndex + 1).join('/');
+                    await this.storageService.deleteFile(filePath);
+                }
+            } catch (error) {
+                console.warn('No se pudo eliminar la foto anterior:', error);
+            }
+        }
+
+        // Subir nueva foto
+        const folder = `perfiles/docente-${id}`;
+        const uploadResult = await this.storageService.uploadFile(file, folder);
+
+        // Actualizar docente con nueva URL de foto
+        docente.foto_perfil = uploadResult.url;
+        return await this.docenteRepo.save(docente);
+    }
+
+    async removeFotoPerfil(id: number): Promise<Docente> {
+        const docente = await this.findOne(id);
+
+        if (docente.foto_perfil) {
+            try {
+                // Extraer el path del archivo de la URL de Supabase
+                const urlParts = docente.foto_perfil.split('/');
+                const publicIndex = urlParts.indexOf('public');
+                if (publicIndex !== -1 && publicIndex < urlParts.length - 1) {
+                    const filePath = urlParts.slice(publicIndex + 1).join('/');
+                    await this.storageService.deleteFile(filePath);
+                }
+            } catch (error) {
+                console.warn('No se pudo eliminar la foto:', error);
+            }
+
+            docente.foto_perfil = null as any;
+            return await this.docenteRepo.save(docente);
+        }
+
+        return docente;
     }
 
     // ========== MÉTODOS PARA CARGOS DOCENTES ==========

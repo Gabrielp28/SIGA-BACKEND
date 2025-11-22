@@ -55,6 +55,9 @@ export class Docente {
   @Column({ type: 'date', nullable: true })
   fecha_ingreso: Date;
 
+  @Column({ length: 500, nullable: true })
+  foto_perfil: string;
+
   @OneToMany(() => CargaDocente, carga => carga.docente)
   cargas: CargaDocente[];
 

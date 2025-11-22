@@ -111,6 +111,9 @@ export class DocenteResponseDto {
   @ApiProperty({ required: false, nullable: true })
   fecha_ingreso?: Date;
 
+  @ApiProperty({ required: false, nullable: true, description: 'URL de la foto de perfil' })
+  foto_perfil?: string | null;
+
   @ApiProperty({ type: DepartamentoResumenDto, nullable: true })
   departamento?: DepartamentoResumenDto | null;
 
@@ -134,6 +137,7 @@ export class DocenteResponseDto {
     dto.genero = entity.genero ?? null;
     dto.estado = entity.estado;
     dto.fecha_ingreso = entity.fecha_ingreso ?? null;
+    dto.foto_perfil = entity.foto_perfil ?? null;
     dto.departamento = DepartamentoResumenDto.fromEntity(entity.departamento);
     dto.cargo = CargoResumenDto.fromEntity(entity.cargo);
     dto.formaciones = entity.formaciones

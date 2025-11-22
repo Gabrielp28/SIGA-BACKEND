@@ -13,6 +13,7 @@ import { AsignaturasModule } from './asignaturas/asignaturas.module';
 import { DocenteModule } from './docente/docente.module';
 import { CargaDocenteModule } from './carga-docente/carga-docente.module';
 import { RolModule } from './rol/rol.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { RolModule } from './rol/rol.module';
     DocenteModule,
     CargaDocenteModule,
     RolModule,
+    StorageModule,
   ],
   providers: [
     {

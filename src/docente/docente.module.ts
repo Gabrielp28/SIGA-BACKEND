@@ -8,14 +8,27 @@ import { CargoDocente } from 'src/common/entities/cargos_docentes.entity';
 import { Departamento } from 'src/common/entities/departamentos.entity';
 import { FormacionAcademica } from 'src/common/entities/formacion_academica.entity';
 import { ExperienciaLaboral } from 'src/common/entities/experiencia_laboral.entity';
+import { EvidenciaDocente } from 'src/common/entities/evidencias_docentes.entity';
+import { Asignatura } from 'src/common/entities/asignaturas.entity';
+import { StorageModule } from 'src/storage/storage.module';
+import { EvidenciasDocenteService } from './evidencias-docente.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Docente, CargoDocente, Departamento, FormacionAcademica, ExperienciaLaboral]),
+    TypeOrmModule.forFeature([
+      Docente,
+      CargoDocente,
+      Departamento,
+      FormacionAcademica,
+      ExperienciaLaboral,
+      EvidenciaDocente,
+      Asignatura,
+    ]),
+    StorageModule,
   ],
   controllers: [DocenteController, CargoDocenteController],
-  providers: [DocenteService],
-  exports: [DocenteService],
+  providers: [DocenteService, EvidenciasDocenteService],
+  exports: [DocenteService, EvidenciasDocenteService],
 })
 export class DocenteModule {}
 
