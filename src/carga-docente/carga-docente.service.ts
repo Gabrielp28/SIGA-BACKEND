@@ -36,10 +36,13 @@ export class CargaDocenteService {
       throw new NotFoundException(`Grupo con ID ${id_grupo} no encontrado`);
     }
 
+    // Verificar si ya existe una carga activa para este docente y grupo
+    // Solo prevenir duplicados si es el mismo tipo de vinculación
     const cargaExistente = await this.cargaDocenteRepo.findOne({
       where: {
         docente: { id_docente },
         grupo: { id_grupo },
+        tipo_vinculacion: createDto.tipo_vinculacion || 'titular',
         estado: 'asignada',
       },
       relations: ['docente', 'grupo'],
@@ -47,10 +50,11 @@ export class CargaDocenteService {
 
     if (cargaExistente) {
       throw new BadRequestException(
-        `El docente ya tiene una carga activa asignada a este grupo`,
+        `El docente ya tiene una carga activa de tipo "${createDto.tipo_vinculacion || 'titular'}" asignada a este grupo`,
       );
     }
 
+    // Validar tipo de vinculación
     const tiposValidos = ['titular', 'suplente', 'auxiliar', 'coordinador'];
     const tipoVinculacion = createDto.tipo_vinculacion || 'titular';
     if (!tiposValidos.includes(tipoVinculacion)) {
@@ -59,6 +63,7 @@ export class CargaDocenteService {
       );
     }
 
+    // Validar estado
     const estadosValidos = ['asignada', 'finalizada', 'cancelada'];
     const estado = createDto.estado || 'asignada';
     if (!estadosValidos.includes(estado)) {
