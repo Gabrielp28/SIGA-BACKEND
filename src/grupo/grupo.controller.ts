@@ -79,6 +79,20 @@ export class GrupoController {
     return this.grupoService.findByAsignatura(+idAsignatura);
   }
 
+  @Get('carrera/:id_carrera')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Obtener grupos por carrera' })
+  @ApiParam({ name: 'id_carrera', description: 'ID de la carrera', type: Number })
+  @ApiResponse({
+    type: [ResponseGrupoDto],
+    description: 'Listado de grupos de la carrera',
+    status: 200,
+  })
+  @ApiResponse({ status: 404, description: 'Carrera no encontrada' })
+  findByCarrera(@Param('id_carrera') idCarrera: string) {
+    return this.grupoService.findByCarrera(+idCarrera);
+  }
+
   @Get('docente/:id_docente')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtener grupos por docente titular' })

@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Departamento } from './departamentos.entity';
 import { Asignatura } from './asignaturas.entity';
+import { Grupo } from './grupos.entity';
 
 @Entity('Tbl_Carreras')
 export class Carrera {
@@ -34,5 +35,8 @@ export class Carrera {
   estado: string;
 
   @OneToMany(() => Asignatura, asig => asig.carrera)
-  asignaturas: Asignatura[]; 
+  asignaturas: Asignatura[];
+
+  @OneToMany(() => Grupo, grupo => grupo.carrera)
+  grupos: Grupo[];
 }

@@ -1,15 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, MaxLength, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, MaxLength, Min, Max } from 'class-validator';
 
 export class CreateGrupoDto {
-  @ApiProperty({
-    description: 'ID de la asignatura a la que pertenece el grupo',
-    example: 1,
-  })
-  @IsNumber()
-  @Min(1)
-  id_asignatura: number;
-
   @ApiProperty({
     description: 'Código único del grupo',
     example: 'GRUPO-001',
@@ -38,14 +30,42 @@ export class CreateGrupoDto {
   @MaxLength(20)
   periodo_academico: string;
 
+  @ApiProperty({
+    description: 'ID de la carrera a la que pertenece el grupo',
+    example: 1,
+  })
+  @IsNumber()
+  @Min(1)
+  id_carrera: number;
+
   @ApiPropertyOptional({
-    description: 'ID del docente titular del grupo',
+    description: 'ID del docente titular (coordinador) del grupo',
     example: 1,
   })
   @IsOptional()
   @IsNumber()
   @Min(1)
   id_docente_titular?: number;
+
+  @ApiPropertyOptional({
+    description: 'Número mínimo de asignaturas requeridas en el grupo',
+    example: 3,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  min_asignaturas?: number;
+
+  @ApiPropertyOptional({
+    description: 'Número máximo de asignaturas permitidas en el grupo',
+    example: 5,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  max_asignaturas?: number;
 
   @ApiPropertyOptional({
     description: 'Estado del grupo',

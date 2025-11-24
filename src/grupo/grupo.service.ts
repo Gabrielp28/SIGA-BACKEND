@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Grupo } from 'src/common/entities/grupos.entity';
-import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
+import { Carrera } from 'src/common/entities/carreras.entity';
+import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_docente.entity';
 import { CreateGrupoDto } from './dto/create-grupo.dto';
 import { UpdateGrupoDto } from './dto/update-grupo.dto';
 import { QueryGrupoDto } from './dto/query-grupo.dto';
@@ -13,23 +14,25 @@ export class GrupoService {
   constructor(
     @InjectRepository(Grupo)
     private readonly grupoRepo: Repository<Grupo>,
-    @InjectRepository(Asignatura)
-    private readonly asignaturaRepo: Repository<Asignatura>,
     @InjectRepository(Docente)
     private readonly docenteRepo: Repository<Docente>,
+    @InjectRepository(Carrera)
+    private readonly carreraRepo: Repository<Carrera>,
+    @InjectRepository(GrupoAsignaturaDocente)
+    private readonly grupoAsigDocRepo: Repository<GrupoAsignaturaDocente>,
   ) {}
 
   async create(createDto: CreateGrupoDto): Promise<Grupo> {
-    // Validar que la asignatura existe
-    const asignatura = await this.asignaturaRepo.findOne({
-      where: { id_asignatura: createDto.id_asignatura },
+    // Validar que la carrera existe
+    const carrera = await this.carreraRepo.findOne({
+      where: { id_carrera: createDto.id_carrera },
     });
 
-    if (!asignatura) {
-      throw new NotFoundException(`Asignatura con ID ${createDto.id_asignatura} no encontrada`);
+    if (!carrera) {
+      throw new NotFoundException(`Carrera con ID ${createDto.id_carrera} no encontrada`);
     }
 
-    // Validar que el docente existe (si se proporciona)
+    // Validar que el docente titular existe (si se proporciona)
     let docenteTitular: Docente | null = null;
     if (createDto.id_docente_titular) {
       docenteTitular = await this.docenteRepo.findOne({
@@ -41,28 +44,37 @@ export class GrupoService {
       }
     }
 
-    // Verificar que el código de grupo no exista en el mismo periodo y asignatura
+    // Validar min y max asignaturas
+    if (createDto.min_asignaturas && createDto.max_asignaturas) {
+      if (createDto.min_asignaturas > createDto.max_asignaturas) {
+        throw new BadRequestException(
+          'El mínimo de asignaturas no puede ser mayor que el máximo',
+        );
+      }
+    }
+
+    // Verificar que el código de grupo no exista en el mismo periodo
     const grupoExistente = await this.grupoRepo.findOne({
       where: {
         codigo_grupo: createDto.codigo_grupo,
         periodo_academico: createDto.periodo_academico,
-        asignatura: { id_asignatura: createDto.id_asignatura },
       },
-      relations: ['asignatura'],
     });
 
     if (grupoExistente) {
       throw new BadRequestException(
-        `Ya existe un grupo con el código ${createDto.codigo_grupo} para la asignatura ${createDto.id_asignatura} en el periodo ${createDto.periodo_academico}`,
+        `Ya existe un grupo con el código ${createDto.codigo_grupo} en el periodo ${createDto.periodo_academico}`,
       );
     }
 
     const grupoData: Partial<Grupo> = {
-      asignatura: asignatura,
+      carrera: carrera,
       codigo_grupo: createDto.codigo_grupo,
       nombre_grupo: createDto.nombre_grupo,
       periodo_academico: createDto.periodo_academico,
       estado: createDto.estado || 'activo',
+      min_asignaturas: createDto.min_asignaturas,
+      max_asignaturas: createDto.max_asignaturas,
     };
 
     if (docenteTitular) {
@@ -74,10 +86,16 @@ export class GrupoService {
     return await this.grupoRepo.save(newGrupo);
   }
 
-  async findAll(query?: QueryGrupoDto): Promise<Grupo[] | { data: Grupo[]; total: number; page: number; limit: number }> {
-    const queryBuilder = this.grupoRepo.createQueryBuilder('grupo')
-      .leftJoinAndSelect('grupo.asignatura', 'asignatura')
-      .leftJoinAndSelect('grupo.docente_titular', 'docente_titular');
+  async findAll(
+    query?: QueryGrupoDto,
+  ): Promise<Grupo[] | { data: Grupo[]; total: number; page: number; limit: number }> {
+    const queryBuilder = this.grupoRepo
+      .createQueryBuilder('grupo')
+      .leftJoinAndSelect('grupo.carrera', 'carrera')
+      .leftJoinAndSelect('grupo.docente_titular', 'docente_titular')
+      .leftJoinAndSelect('grupo.asignaturas_docentes', 'asignaturas_docentes')
+      .leftJoinAndSelect('asignaturas_docentes.asignatura', 'asignatura')
+      .leftJoinAndSelect('asignaturas_docentes.docente', 'docente');
 
     // Búsqueda por código o nombre
     if (query?.search) {
@@ -96,17 +114,18 @@ export class GrupoService {
       }
     }
 
-    // Filtro por asignatura
-    if (query?.id_asignatura) {
+    // Filtro por carrera
+    if (query?.id_carrera) {
       const whereClause = query?.search || query?.estado ? 'andWhere' : 'where';
-      queryBuilder[whereClause]('asignatura.id_asignatura = :id_asignatura', {
-        id_asignatura: query.id_asignatura,
+      queryBuilder[whereClause]('carrera.id_carrera = :id_carrera', {
+        id_carrera: query.id_carrera,
       });
     }
 
     // Filtro por docente titular
     if (query?.id_docente_titular) {
-      const whereClause = query?.search || query?.estado || query?.id_asignatura ? 'andWhere' : 'where';
+      const whereClause =
+        query?.search || query?.estado || query?.id_carrera ? 'andWhere' : 'where';
       queryBuilder[whereClause]('docente_titular.id_docente = :id_docente_titular', {
         id_docente_titular: query.id_docente_titular,
       });
@@ -115,7 +134,7 @@ export class GrupoService {
     // Filtro por periodo académico
     if (query?.periodo_academico) {
       const whereClause =
-        query?.search || query?.estado || query?.id_asignatura || query?.id_docente_titular
+        query?.search || query?.estado || query?.id_carrera || query?.id_docente_titular
           ? 'andWhere'
           : 'where';
       queryBuilder[whereClause]('grupo.periodo_academico = :periodo_academico', {
@@ -153,7 +172,13 @@ export class GrupoService {
   async findOne(id: number): Promise<Grupo> {
     const grupo = await this.grupoRepo.findOne({
       where: { id_grupo: id },
-      relations: ['asignatura', 'docente_titular'],
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
     });
 
     if (!grupo) {
@@ -166,7 +191,13 @@ export class GrupoService {
   async findByCodigo(codigo: string): Promise<Grupo> {
     const grupo = await this.grupoRepo.findOne({
       where: { codigo_grupo: codigo },
-      relations: ['asignatura', 'docente_titular'],
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
     });
 
     if (!grupo) {
@@ -177,9 +208,43 @@ export class GrupoService {
   }
 
   async findByAsignatura(idAsignatura: number): Promise<Grupo[]> {
-    const grupos = await this.grupoRepo.find({
+    // Buscar grupos que tengan esta asignatura a través de la tabla intermedia
+    const gruposAsig = await this.grupoAsigDocRepo.find({
       where: { asignatura: { id_asignatura: idAsignatura } },
-      relations: ['asignatura', 'docente_titular'],
+      relations: ['grupo', 'grupo.carrera', 'grupo.docente_titular', 'asignatura', 'docente'],
+    });
+
+    // Extraer grupos únicos
+    const gruposMap = new Map<number, Grupo>();
+    gruposAsig.forEach((ga) => {
+      if (!gruposMap.has(ga.grupo.id_grupo)) {
+        gruposMap.set(ga.grupo.id_grupo, ga.grupo);
+      }
+    });
+
+    return Array.from(gruposMap.values()).sort((a, b) =>
+      a.codigo_grupo.localeCompare(b.codigo_grupo),
+    );
+  }
+
+  async findByCarrera(idCarrera: number): Promise<Grupo[]> {
+    const carrera = await this.carreraRepo.findOne({
+      where: { id_carrera: idCarrera },
+    });
+
+    if (!carrera) {
+      throw new NotFoundException(`Carrera con ID ${idCarrera} no encontrada`);
+    }
+
+    const grupos = await this.grupoRepo.find({
+      where: { carrera: { id_carrera: idCarrera } },
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
       order: { codigo_grupo: 'ASC' },
     });
 
@@ -187,9 +252,16 @@ export class GrupoService {
   }
 
   async findByDocente(idDocente: number): Promise<Grupo[]> {
+    // Buscar grupos donde el docente es titular
     const grupos = await this.grupoRepo.find({
       where: { docente_titular: { id_docente: idDocente } },
-      relations: ['asignatura', 'docente_titular'],
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
       order: { codigo_grupo: 'ASC' },
     });
 
@@ -199,7 +271,13 @@ export class GrupoService {
   async findByPeriodo(periodo: string): Promise<Grupo[]> {
     const grupos = await this.grupoRepo.find({
       where: { periodo_academico: periodo },
-      relations: ['asignatura', 'docente_titular'],
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
       order: { codigo_grupo: 'ASC' },
     });
 
@@ -209,7 +287,13 @@ export class GrupoService {
   async findByEstado(estado: string): Promise<Grupo[]> {
     const grupos = await this.grupoRepo.find({
       where: { estado },
-      relations: ['asignatura', 'docente_titular'],
+      relations: [
+        'carrera',
+        'docente_titular',
+        'asignaturas_docentes',
+        'asignaturas_docentes.asignatura',
+        'asignaturas_docentes.docente',
+      ],
       order: { codigo_grupo: 'ASC' },
     });
 
@@ -219,17 +303,17 @@ export class GrupoService {
   async update(id: number, updateDto: UpdateGrupoDto): Promise<Grupo> {
     const grupo = await this.findOne(id);
 
-    // Validar asignatura si se actualiza
-    if (updateDto.id_asignatura) {
-      const asignatura = await this.asignaturaRepo.findOne({
-        where: { id_asignatura: updateDto.id_asignatura },
+    // Validar carrera si se actualiza
+    if (updateDto.id_carrera) {
+      const carrera = await this.carreraRepo.findOne({
+        where: { id_carrera: updateDto.id_carrera },
       });
 
-      if (!asignatura) {
-        throw new NotFoundException(`Asignatura con ID ${updateDto.id_asignatura} no encontrada`);
+      if (!carrera) {
+        throw new NotFoundException(`Carrera con ID ${updateDto.id_carrera} no encontrada`);
       }
 
-      grupo.asignatura = asignatura;
+      grupo.carrera = carrera;
     }
 
     // Validar docente si se actualiza
@@ -242,30 +326,80 @@ export class GrupoService {
         });
 
         if (!docente) {
-          throw new NotFoundException(`Docente con ID ${updateDto.id_docente_titular} no encontrado`);
+          throw new NotFoundException(
+            `Docente con ID ${updateDto.id_docente_titular} no encontrado`,
+          );
         }
 
         grupo.docente_titular = docente;
       }
     }
 
+    // Validar min y max asignaturas
+    if (updateDto.min_asignaturas !== undefined || updateDto.max_asignaturas !== undefined) {
+      const minAsig = updateDto.min_asignaturas ?? grupo.min_asignaturas;
+      const maxAsig = updateDto.max_asignaturas ?? grupo.max_asignaturas;
+
+      if (minAsig && maxAsig && minAsig > maxAsig) {
+        throw new BadRequestException(
+          'El mínimo de asignaturas no puede ser mayor que el máximo',
+        );
+      }
+
+      // Validar que el nuevo mínimo no sea mayor que las asignaturas actuales
+      if (minAsig) {
+        const asignaturasActivas = await this.grupoAsigDocRepo.count({
+          where: {
+            grupo: { id_grupo: id },
+            estado: 'activa',
+          },
+        });
+
+        if (asignaturasActivas < minAsig) {
+          throw new BadRequestException(
+            `No se puede establecer un mínimo de ${minAsig} asignaturas. El grupo actualmente tiene ${asignaturasActivas} asignaturas activas`,
+          );
+        }
+      }
+
+      // Validar que el nuevo máximo no sea menor que las asignaturas actuales
+      if (maxAsig) {
+        const asignaturasActivas = await this.grupoAsigDocRepo.count({
+          where: {
+            grupo: { id_grupo: id },
+            estado: 'activa',
+          },
+        });
+
+        if (asignaturasActivas > maxAsig) {
+          throw new BadRequestException(
+            `No se puede establecer un máximo de ${maxAsig} asignaturas. El grupo actualmente tiene ${asignaturasActivas} asignaturas activas`,
+          );
+        }
+      }
+
+      if (updateDto.min_asignaturas !== undefined) {
+        grupo.min_asignaturas = updateDto.min_asignaturas;
+      }
+      if (updateDto.max_asignaturas !== undefined) {
+        grupo.max_asignaturas = updateDto.max_asignaturas;
+      }
+    }
+
     // Verificar código único si se actualiza
     if (updateDto.codigo_grupo) {
       const periodo = updateDto.periodo_academico || grupo.periodo_academico;
-      const idAsignatura = updateDto.id_asignatura || grupo.asignatura.id_asignatura;
 
       const grupoExistente = await this.grupoRepo.findOne({
         where: {
           codigo_grupo: updateDto.codigo_grupo,
           periodo_academico: periodo,
-          asignatura: { id_asignatura: idAsignatura },
         },
-        relations: ['asignatura'],
       });
 
       if (grupoExistente && grupoExistente.id_grupo !== id) {
         throw new BadRequestException(
-          `Ya existe un grupo con el código ${updateDto.codigo_grupo} para la asignatura ${idAsignatura} en el periodo ${periodo}`,
+          `Ya existe un grupo con el código ${updateDto.codigo_grupo} en el periodo ${periodo}`,
         );
       }
 
@@ -293,4 +427,3 @@ export class GrupoService {
     await this.grupoRepo.remove(grupo);
   }
 }
-

@@ -9,11 +9,11 @@ import {
 import { Usuario } from './usuarios.entity';
 import { Departamento } from './departamentos.entity'; 
 import { CargoDocente } from './cargos_docentes.entity';
-import { CargaDocente } from './carga_docentes.entity';
 import { FormacionAcademica } from './formacion_academica.entity';
 import { ExperienciaLaboral } from './experiencia_laboral.entity';
 import { EvidenciaDocente } from './evidencias_docentes.entity';
 import { Grupo } from './grupos.entity';
+import { GrupoAsignaturaDocente } from './grupo_asignatura_docente.entity';
 @Entity('Tbl_Docentes')
 export class Docente {
   @PrimaryGeneratedColumn()
@@ -58,11 +58,11 @@ export class Docente {
   @Column({ length: 500, nullable: true })
   foto_perfil: string;
 
-  @OneToMany(() => CargaDocente, carga => carga.docente)
-  cargas: CargaDocente[];
-
   @OneToMany(() => Grupo, grupo => grupo.docente_titular)
   grupos: Grupo[];
+
+  @OneToMany(() => GrupoAsignaturaDocente, grupoAsig => grupoAsig.docente)
+  grupos_asignaturas: GrupoAsignaturaDocente[];
 
   @OneToMany(() => FormacionAcademica, formacion => formacion.docente)
   formaciones: FormacionAcademica[];

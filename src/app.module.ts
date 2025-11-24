@@ -11,7 +11,7 @@ import { DepartamentoModule } from './departamento/departamento.module';
 import { GrupoModule } from './grupo/grupo.module';
 import { AsignaturasModule } from './asignaturas/asignaturas.module';
 import { DocenteModule } from './docente/docente.module';
-import { CargaDocenteModule } from './carga-docente/carga-docente.module';
+import { GrupoAsignaturaDocenteModule } from './grupo-asignatura-docente/grupo-asignatura-docente.module';
 import { RolModule } from './rol/rol.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -47,7 +47,7 @@ import { StorageModule } from './storage/storage.module';
     GrupoModule,
     AsignaturasModule,
     DocenteModule,
-    CargaDocenteModule,
+    GrupoAsignaturaDocenteModule,
     RolModule,
     StorageModule,
   ],

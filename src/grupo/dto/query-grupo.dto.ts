@@ -22,17 +22,17 @@ export class QueryGrupoDto {
   estado?: string;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por ID de asignatura',
+    description: 'Filtrar por ID de carrera',
     example: 1,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_asignatura?: number;
+  id_carrera?: number;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por ID de docente titular',
+    description: 'Filtrar por ID de docente titular (coordinador)',
     example: 1,
   })
   @IsOptional()

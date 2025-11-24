@@ -7,8 +7,8 @@ import {
   OneToMany
 } from 'typeorm';
 import { Carrera } from './carreras.entity';
-import { Grupo } from './grupos.entity';
 import { EvidenciaDocente } from './evidencias_docentes.entity';
+import { GrupoAsignaturaDocente } from './grupo_asignatura_docente.entity';
 
 @Entity('Tbl_Asignaturas')
 export class Asignatura {
@@ -43,8 +43,8 @@ export class Asignatura {
   @Column({ type: 'text', nullable: true })
   prerequisitos: string;
 
-  @OneToMany(() => Grupo, grupo => grupo.asignatura)
-  grupos: Grupo[];
+  @OneToMany(() => GrupoAsignaturaDocente, grupoAsig => grupoAsig.asignatura)
+  grupos_asignaturas: GrupoAsignaturaDocente[];
 
   @OneToMany(() => EvidenciaDocente, evidencia => evidencia.asignatura)
   evidencias: EvidenciaDocente[];
