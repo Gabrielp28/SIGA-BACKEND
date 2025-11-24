@@ -6,6 +6,7 @@ import { Grupo } from 'src/common/entities/grupos.entity';
 import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { CreateGrupoAsignaturaDocenteDto } from './dto/create-grupo-asignatura-docente.dto';
+import { CreateBulkGrupoAsignaturaDocenteDto } from './dto/create-bulk-grupo-asignatura-docente.dto';
 import { UpdateGrupoAsignaturaDocenteDto } from './dto/update-grupo-asignatura-docente.dto';
 import { QueryGrupoAsignaturaDocenteDto } from './dto/query-grupo-asignatura-docente.dto';
 
@@ -88,6 +89,141 @@ export class GrupoAsignaturaDocenteService {
     });
 
     return await this.grupoAsigDocRepo.save(newGrupoAsigDoc);
+  }
+
+  async createBulk(
+    createBulkDto: CreateBulkGrupoAsignaturaDocenteDto,
+  ): Promise<{
+    creadas: GrupoAsignaturaDocente[];
+    errores: Array<{ asignatura: number; docente: number; error: string }>;
+    total: number;
+    exitosas: number;
+    fallidas: number;
+  }> {
+    // Validar que el grupo existe
+    const grupo = await this.grupoRepo.findOne({
+      where: { id_grupo: createBulkDto.id_grupo },
+    });
+
+    if (!grupo) {
+      throw new NotFoundException(`Grupo con ID ${createBulkDto.id_grupo} no encontrado`);
+    }
+
+    // Obtener asignaturas activas actuales del grupo
+    const asignaturasActivas = await this.grupoAsigDocRepo.count({
+      where: {
+        grupo: { id_grupo: createBulkDto.id_grupo },
+        estado: 'activa',
+      },
+    });
+
+    // Validar límite máximo antes de procesar
+    const nuevasAsignaturas = createBulkDto.asignaturas_docentes.length;
+    if (grupo.max_asignaturas && asignaturasActivas + nuevasAsignaturas > grupo.max_asignaturas) {
+      throw new BadRequestException(
+        `No se pueden agregar ${nuevasAsignaturas} asignaturas. El grupo tiene ${asignaturasActivas} asignaturas activas y el máximo permitido es ${grupo.max_asignaturas}`,
+      );
+    }
+
+    const creadas: GrupoAsignaturaDocente[] = [];
+    const errores: Array<{ asignatura: number; docente: number; error: string }> = [];
+
+    // Validar todas las asignaturas y docentes primero
+    const asignaturasMap = new Map<number, Asignatura>();
+    const docentesMap = new Map<number, Docente>();
+    const asignaturasIds = [
+      ...new Set(createBulkDto.asignaturas_docentes.map((item) => item.id_asignatura)),
+    ];
+    const docentesIds = [
+      ...new Set(createBulkDto.asignaturas_docentes.map((item) => item.id_docente)),
+    ];
+
+    // Cargar todas las asignaturas de una vez
+    const asignaturas = await this.asignaturaRepo.find({
+      where: asignaturasIds.map((id) => ({ id_asignatura: id })),
+    });
+    asignaturas.forEach((asig) => asignaturasMap.set(asig.id_asignatura, asig));
+
+    // Cargar todos los docentes de una vez
+    const docentes = await this.docenteRepo.find({
+      where: docentesIds.map((id) => ({ id_docente: id })),
+    });
+    docentes.forEach((doc) => docentesMap.set(doc.id_docente, doc));
+
+    // Obtener asignaturas ya existentes en el grupo
+    const asignaturasExistentes = await this.grupoAsigDocRepo.find({
+      where: {
+        grupo: { id_grupo: createBulkDto.id_grupo },
+      },
+      relations: ['asignatura'],
+    });
+    const asignaturasExistentesSet = new Set(
+      asignaturasExistentes.map((ae) => ae.asignatura.id_asignatura),
+    );
+
+    // Procesar cada asignatura-docente
+    for (const item of createBulkDto.asignaturas_docentes) {
+      try {
+        // Validar asignatura existe
+        const asignatura = asignaturasMap.get(item.id_asignatura);
+        if (!asignatura) {
+          errores.push({
+            asignatura: item.id_asignatura,
+            docente: item.id_docente,
+            error: `Asignatura con ID ${item.id_asignatura} no encontrada`,
+          });
+          continue;
+        }
+
+        // Validar docente existe
+        const docente = docentesMap.get(item.id_docente);
+        if (!docente) {
+          errores.push({
+            asignatura: item.id_asignatura,
+            docente: item.id_docente,
+            error: `Docente con ID ${item.id_docente} no encontrado`,
+          });
+          continue;
+        }
+
+        // Validar que no existe ya esta asignatura en este grupo
+        if (asignaturasExistentesSet.has(item.id_asignatura)) {
+          errores.push({
+            asignatura: item.id_asignatura,
+            docente: item.id_docente,
+            error: `La asignatura ${asignatura.nombre_asignatura} ya está asignada al grupo`,
+          });
+          continue;
+        }
+
+        // Crear la relación
+        const newGrupoAsigDoc = this.grupoAsigDocRepo.create({
+          grupo,
+          asignatura,
+          docente,
+          estado: createBulkDto.estado || 'activa',
+          observaciones: createBulkDto.observaciones,
+        });
+
+        const saved = await this.grupoAsigDocRepo.save(newGrupoAsigDoc);
+        creadas.push(saved);
+        asignaturasExistentesSet.add(item.id_asignatura); // Agregar a existentes para evitar duplicados en el mismo batch
+      } catch (error) {
+        errores.push({
+          asignatura: item.id_asignatura,
+          docente: item.id_docente,
+          error: error.message || 'Error desconocido al crear la asignación',
+        });
+      }
+    }
+
+    return {
+      creadas,
+      errores,
+      total: createBulkDto.asignaturas_docentes.length,
+      exitosas: creadas.length,
+      fallidas: errores.length,
+    };
   }
 
   async findAll(

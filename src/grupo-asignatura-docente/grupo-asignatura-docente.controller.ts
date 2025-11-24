@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { GrupoAsignaturaDocenteService } from './grupo-asignatura-docente.service';
 import { CreateGrupoAsignaturaDocenteDto } from './dto/create-grupo-asignatura-docente.dto';
+import { CreateBulkGrupoAsignaturaDocenteDto } from './dto/create-bulk-grupo-asignatura-docente.dto';
 import { UpdateGrupoAsignaturaDocenteDto } from './dto/update-grupo-asignatura-docente.dto';
 import { QueryGrupoAsignaturaDocenteDto } from './dto/query-grupo-asignatura-docente.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
@@ -42,6 +43,44 @@ export class GrupoAsignaturaDocenteController {
   })
   create(@Body() dto: CreateGrupoAsignaturaDocenteDto) {
     return this.grupoAsigDocService.create(dto);
+  }
+
+  @Post('bulk')
+  @Public()
+  @ApiOperation({
+    summary: 'Asignar múltiples asignaturas con docentes a un grupo',
+    description:
+      'Crea múltiples relaciones entre grupo, asignaturas y docentes en una sola operación. Permite enviar un array de asignaturas con sus respectivos docentes. Retorna un resumen con las creadas exitosamente y los errores si los hay.',
+  })
+  @ApiCreatedResponse({
+    description: 'Asignaciones creadas (puede incluir errores parciales)',
+    schema: {
+      type: 'object',
+      properties: {
+        creadas: {
+          type: 'array',
+          description: 'Asignaciones creadas exitosamente',
+        },
+        errores: {
+          type: 'array',
+          description: 'Asignaciones que fallaron con sus errores',
+          items: {
+            type: 'object',
+            properties: {
+              asignatura: { type: 'number' },
+              docente: { type: 'number' },
+              error: { type: 'string' },
+            },
+          },
+        },
+        total: { type: 'number', description: 'Total de asignaciones enviadas' },
+        exitosas: { type: 'number', description: 'Cantidad de asignaciones creadas exitosamente' },
+        fallidas: { type: 'number', description: 'Cantidad de asignaciones que fallaron' },
+      },
+    },
+  })
+  createBulk(@Body() dto: CreateBulkGrupoAsignaturaDocenteDto) {
+    return this.grupoAsigDocService.createBulk(dto);
   }
 
   @Get()
