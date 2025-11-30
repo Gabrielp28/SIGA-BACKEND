@@ -22,6 +22,16 @@ export class QueryGrupoDto {
   estado?: string;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por ID de plan',
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_plan?: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por ID de carrera',
     example: 1,
   })

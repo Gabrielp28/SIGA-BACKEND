@@ -31,6 +31,14 @@ export class CreateGrupoDto {
   periodo_academico: string;
 
   @ApiProperty({
+    description: 'ID del plan de estudios',
+    example: 1,
+  })
+  @IsNumber()
+  @Min(1)
+  id_plan: number;
+
+  @ApiProperty({
     description: 'ID de la carrera a la que pertenece el grupo',
     example: 1,
   })

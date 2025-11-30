@@ -6,6 +6,8 @@ import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_doc
 import { Grupo } from 'src/common/entities/grupos.entity';
 import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
+import { PlanCarrera } from 'src/common/entities/plan_carrera.entity';
+import { PlanCarreraAsignatura } from 'src/common/entities/plan_carrera_asignatura.entity';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { Docente } from 'src/common/entities/docentes.entity';
       Grupo,
       Asignatura,
       Docente,
+      PlanCarrera,
+      PlanCarreraAsignatura,
     ]),
   ],
   controllers: [GrupoAsignaturaDocenteController],

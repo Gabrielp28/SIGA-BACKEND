@@ -9,6 +9,7 @@ import {
 import { Departamento } from './departamentos.entity';
 import { Asignatura } from './asignaturas.entity';
 import { Grupo } from './grupos.entity';
+import { PlanCarrera } from './plan_carrera.entity';
 
 @Entity('Tbl_Carreras')
 export class Carrera {
@@ -39,4 +40,7 @@ export class Carrera {
 
   @OneToMany(() => Grupo, grupo => grupo.carrera)
   grupos: Grupo[];
+
+  @OneToMany(() => PlanCarrera, planCarrera => planCarrera.carrera)
+  planes_carreras: PlanCarrera[];
 }

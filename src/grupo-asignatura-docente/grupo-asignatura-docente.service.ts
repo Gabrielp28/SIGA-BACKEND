@@ -5,6 +5,8 @@ import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_doc
 import { Grupo } from 'src/common/entities/grupos.entity';
 import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
+import { PlanCarrera } from 'src/common/entities/plan_carrera.entity';
+import { PlanCarreraAsignatura } from 'src/common/entities/plan_carrera_asignatura.entity';
 import { CreateGrupoAsignaturaDocenteDto } from './dto/create-grupo-asignatura-docente.dto';
 import { CreateBulkGrupoAsignaturaDocenteDto } from './dto/create-bulk-grupo-asignatura-docente.dto';
 import { UpdateGrupoAsignaturaDocenteDto } from './dto/update-grupo-asignatura-docente.dto';
@@ -21,25 +23,72 @@ export class GrupoAsignaturaDocenteService {
     private readonly asignaturaRepo: Repository<Asignatura>,
     @InjectRepository(Docente)
     private readonly docenteRepo: Repository<Docente>,
+    @InjectRepository(PlanCarrera)
+    private readonly planCarreraRepo: Repository<PlanCarrera>,
+    @InjectRepository(PlanCarreraAsignatura)
+    private readonly planCarreraAsigRepo: Repository<PlanCarreraAsignatura>,
   ) {}
 
   async create(createDto: CreateGrupoAsignaturaDocenteDto): Promise<GrupoAsignaturaDocente> {
     // Validar que el grupo existe
     const grupo = await this.grupoRepo.findOne({
       where: { id_grupo: createDto.id_grupo },
+      relations: ['plan', 'carrera'],
     });
 
     if (!grupo) {
       throw new NotFoundException(`Grupo con ID ${createDto.id_grupo} no encontrado`);
     }
 
+    if (!grupo.plan) {
+      throw new BadRequestException(
+        `El grupo ${grupo.codigo_grupo} no tiene un plan asignado`,
+      );
+    }
+
     // Validar que la asignatura existe
     const asignatura = await this.asignaturaRepo.findOne({
       where: { id_asignatura: createDto.id_asignatura },
+      relations: ['carrera'],
     });
 
     if (!asignatura) {
       throw new NotFoundException(`Asignatura con ID ${createDto.id_asignatura} no encontrada`);
+    }
+
+    // Validar que la asignatura pertenece al plan del grupo
+    const planCarrera = await this.planCarreraRepo.findOne({
+      where: {
+        plan: { id_plan: grupo.plan.id_plan },
+        carrera: { id_carrera: grupo.carrera.id_carrera },
+      },
+    });
+
+    if (!planCarrera) {
+      throw new BadRequestException(
+        `No se encontró la relación plan-carrera para el plan ${grupo.plan.nombre_plan} y carrera ${grupo.carrera.nombre_carrera}`,
+      );
+    }
+
+    // Validar que la asignatura pertenece a la carrera del grupo
+    if (asignatura.carrera.id_carrera !== grupo.carrera.id_carrera) {
+      throw new BadRequestException(
+        `La asignatura ${asignatura.nombre_asignatura} no pertenece a la carrera ${grupo.carrera.nombre_carrera}`,
+      );
+    }
+
+    // Validar que la asignatura está en el plan-carrera
+    const planCarreraAsignatura = await this.planCarreraAsigRepo.findOne({
+      where: {
+        planCarrera: { id_plan_carrera: planCarrera.id_plan_carrera },
+        asignatura: { id_asignatura: createDto.id_asignatura },
+      },
+    });
+
+    if (!planCarreraAsignatura) {
+      throw new BadRequestException(
+        `La asignatura ${asignatura.nombre_asignatura} no está disponible en el plan ${grupo.plan.nombre_plan} para la carrera ${grupo.carrera.nombre_carrera}`,
+      );
     }
 
     // Validar que el docente existe
@@ -103,10 +152,31 @@ export class GrupoAsignaturaDocenteService {
     // Validar que el grupo existe
     const grupo = await this.grupoRepo.findOne({
       where: { id_grupo: createBulkDto.id_grupo },
+      relations: ['plan', 'carrera'],
     });
 
     if (!grupo) {
       throw new NotFoundException(`Grupo con ID ${createBulkDto.id_grupo} no encontrado`);
+    }
+
+    if (!grupo.plan) {
+      throw new BadRequestException(
+        `El grupo ${grupo.codigo_grupo} no tiene un plan asignado`,
+      );
+    }
+
+    // Obtener el plan-carrera del grupo
+    const planCarrera = await this.planCarreraRepo.findOne({
+      where: {
+        plan: { id_plan: grupo.plan.id_plan },
+        carrera: { id_carrera: grupo.carrera.id_carrera },
+      },
+    });
+
+    if (!planCarrera) {
+      throw new BadRequestException(
+        `No se encontró la relación plan-carrera para el plan ${grupo.plan.nombre_plan} y carrera ${grupo.carrera.nombre_carrera}`,
+      );
     }
 
     // Obtener asignaturas activas actuales del grupo
@@ -141,8 +211,18 @@ export class GrupoAsignaturaDocenteService {
     // Cargar todas las asignaturas de una vez
     const asignaturas = await this.asignaturaRepo.find({
       where: asignaturasIds.map((id) => ({ id_asignatura: id })),
+      relations: ['carrera'],
     });
     asignaturas.forEach((asig) => asignaturasMap.set(asig.id_asignatura, asig));
+
+    // Obtener asignaturas del plan-carrera
+    const asignaturasPlanCarrera = await this.planCarreraAsigRepo.find({
+      where: { planCarrera: { id_plan_carrera: planCarrera.id_plan_carrera } },
+      relations: ['asignatura'],
+    });
+    const asignaturasPlanSet = new Set(
+      asignaturasPlanCarrera.map((pca) => pca.asignatura.id_asignatura),
+    );
 
     // Cargar todos los docentes de una vez
     const docentes = await this.docenteRepo.find({
@@ -182,6 +262,26 @@ export class GrupoAsignaturaDocenteService {
             asignatura: item.id_asignatura,
             docente: item.id_docente,
             error: `Docente con ID ${item.id_docente} no encontrado`,
+          });
+          continue;
+        }
+
+        // Validar que la asignatura pertenece a la carrera del grupo
+        if (asignatura.carrera.id_carrera !== grupo.carrera.id_carrera) {
+          errores.push({
+            asignatura: item.id_asignatura,
+            docente: item.id_docente,
+            error: `La asignatura ${asignatura.nombre_asignatura} no pertenece a la carrera ${grupo.carrera.nombre_carrera}`,
+          });
+          continue;
+        }
+
+        // Validar que la asignatura está en el plan del grupo
+        if (!asignaturasPlanSet.has(item.id_asignatura)) {
+          errores.push({
+            asignatura: item.id_asignatura,
+            docente: item.id_docente,
+            error: `La asignatura ${asignatura.nombre_asignatura} no está disponible en el plan ${grupo.plan.nombre_plan} para la carrera ${grupo.carrera.nombre_carrera}`,
           });
           continue;
         }

@@ -12,6 +12,7 @@ import { GrupoModule } from './grupo/grupo.module';
 import { AsignaturasModule } from './asignaturas/asignaturas.module';
 import { DocenteModule } from './docente/docente.module';
 import { GrupoAsignaturaDocenteModule } from './grupo-asignatura-docente/grupo-asignatura-docente.module';
+import { PlanModule } from './plan/plan.module';
 import { RolModule } from './rol/rol.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -48,6 +49,7 @@ import { StorageModule } from './storage/storage.module';
     AsignaturasModule,
     DocenteModule,
     GrupoAsignaturaDocenteModule,
+    PlanModule,
     RolModule,
     StorageModule,
   ],

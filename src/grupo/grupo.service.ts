@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Grupo } from 'src/common/entities/grupos.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { Carrera } from 'src/common/entities/carreras.entity';
+import { Plan } from 'src/common/entities/planes.entity';
 import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_docente.entity';
 import { CreateGrupoDto } from './dto/create-grupo.dto';
 import { UpdateGrupoDto } from './dto/update-grupo.dto';
@@ -18,11 +19,22 @@ export class GrupoService {
     private readonly docenteRepo: Repository<Docente>,
     @InjectRepository(Carrera)
     private readonly carreraRepo: Repository<Carrera>,
+    @InjectRepository(Plan)
+    private readonly planRepo: Repository<Plan>,
     @InjectRepository(GrupoAsignaturaDocente)
     private readonly grupoAsigDocRepo: Repository<GrupoAsignaturaDocente>,
   ) {}
 
   async create(createDto: CreateGrupoDto): Promise<Grupo> {
+    // Validar que el plan existe
+    const plan = await this.planRepo.findOne({
+      where: { id_plan: createDto.id_plan },
+    });
+
+    if (!plan) {
+      throw new NotFoundException(`Plan con ID ${createDto.id_plan} no encontrado`);
+    }
+
     // Validar que la carrera existe
     const carrera = await this.carreraRepo.findOne({
       where: { id_carrera: createDto.id_carrera },
@@ -68,6 +80,7 @@ export class GrupoService {
     }
 
     const grupoData: Partial<Grupo> = {
+      plan: plan,
       carrera: carrera,
       codigo_grupo: createDto.codigo_grupo,
       nombre_grupo: createDto.nombre_grupo,
@@ -91,6 +104,7 @@ export class GrupoService {
   ): Promise<Grupo[] | { data: Grupo[]; total: number; page: number; limit: number }> {
     const queryBuilder = this.grupoRepo
       .createQueryBuilder('grupo')
+      .leftJoinAndSelect('grupo.plan', 'plan')
       .leftJoinAndSelect('grupo.carrera', 'carrera')
       .leftJoinAndSelect('grupo.docente_titular', 'docente_titular')
       .leftJoinAndSelect('grupo.asignaturas_docentes', 'asignaturas_docentes')
@@ -114,9 +128,18 @@ export class GrupoService {
       }
     }
 
+    // Filtro por plan
+    if (query?.id_plan) {
+      const whereClause = query?.search || query?.estado ? 'andWhere' : 'where';
+      queryBuilder[whereClause]('plan.id_plan = :id_plan', {
+        id_plan: query.id_plan,
+      });
+    }
+
     // Filtro por carrera
     if (query?.id_carrera) {
-      const whereClause = query?.search || query?.estado ? 'andWhere' : 'where';
+      const whereClause =
+        query?.search || query?.estado || query?.id_plan ? 'andWhere' : 'where';
       queryBuilder[whereClause]('carrera.id_carrera = :id_carrera', {
         id_carrera: query.id_carrera,
       });
@@ -125,7 +148,9 @@ export class GrupoService {
     // Filtro por docente titular
     if (query?.id_docente_titular) {
       const whereClause =
-        query?.search || query?.estado || query?.id_carrera ? 'andWhere' : 'where';
+        query?.search || query?.estado || query?.id_plan || query?.id_carrera
+          ? 'andWhere'
+          : 'where';
       queryBuilder[whereClause]('docente_titular.id_docente = :id_docente_titular', {
         id_docente_titular: query.id_docente_titular,
       });
@@ -173,6 +198,7 @@ export class GrupoService {
     const grupo = await this.grupoRepo.findOne({
       where: { id_grupo: id },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -192,6 +218,7 @@ export class GrupoService {
     const grupo = await this.grupoRepo.findOne({
       where: { codigo_grupo: codigo },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -211,7 +238,7 @@ export class GrupoService {
     // Buscar grupos que tengan esta asignatura a través de la tabla intermedia
     const gruposAsig = await this.grupoAsigDocRepo.find({
       where: { asignatura: { id_asignatura: idAsignatura } },
-      relations: ['grupo', 'grupo.carrera', 'grupo.docente_titular', 'asignatura', 'docente'],
+      relations: ['grupo', 'grupo.plan', 'grupo.carrera', 'grupo.docente_titular', 'asignatura', 'docente'],
     });
 
     // Extraer grupos únicos
@@ -239,6 +266,7 @@ export class GrupoService {
     const grupos = await this.grupoRepo.find({
       where: { carrera: { id_carrera: idCarrera } },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -256,6 +284,7 @@ export class GrupoService {
     const grupos = await this.grupoRepo.find({
       where: { docente_titular: { id_docente: idDocente } },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -272,6 +301,7 @@ export class GrupoService {
     const grupos = await this.grupoRepo.find({
       where: { periodo_academico: periodo },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -288,6 +318,7 @@ export class GrupoService {
     const grupos = await this.grupoRepo.find({
       where: { estado },
       relations: [
+        'plan',
         'carrera',
         'docente_titular',
         'asignaturas_docentes',
@@ -302,6 +333,19 @@ export class GrupoService {
 
   async update(id: number, updateDto: UpdateGrupoDto): Promise<Grupo> {
     const grupo = await this.findOne(id);
+
+    // Validar plan si se actualiza
+    if (updateDto.id_plan) {
+      const plan = await this.planRepo.findOne({
+        where: { id_plan: updateDto.id_plan },
+      });
+
+      if (!plan) {
+        throw new NotFoundException(`Plan con ID ${updateDto.id_plan} no encontrado`);
+      }
+
+      grupo.plan = plan;
+    }
 
     // Validar carrera si se actualiza
     if (updateDto.id_carrera) {

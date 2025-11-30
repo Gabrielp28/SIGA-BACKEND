@@ -5,10 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Grupo } from 'src/common/entities/grupos.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { Carrera } from 'src/common/entities/carreras.entity';
+import { Plan } from 'src/common/entities/planes.entity';
 import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_docente.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Grupo, Docente, Carrera, GrupoAsignaturaDocente])],
+  imports: [TypeOrmModule.forFeature([Grupo, Docente, Carrera, Plan, GrupoAsignaturaDocente])],
   controllers: [GrupoController],
   providers: [GrupoService],
   exports: [GrupoService],

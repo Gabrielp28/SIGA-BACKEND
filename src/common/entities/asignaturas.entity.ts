@@ -9,6 +9,7 @@ import {
 import { Carrera } from './carreras.entity';
 import { EvidenciaDocente } from './evidencias_docentes.entity';
 import { GrupoAsignaturaDocente } from './grupo_asignatura_docente.entity';
+import { PlanCarreraAsignatura } from './plan_carrera_asignatura.entity';
 
 @Entity('Tbl_Asignaturas')
 export class Asignatura {
@@ -48,4 +49,7 @@ export class Asignatura {
 
   @OneToMany(() => EvidenciaDocente, evidencia => evidencia.asignatura)
   evidencias: EvidenciaDocente[];
+
+  @OneToMany(() => PlanCarreraAsignatura, planCarreraAsig => planCarreraAsig.asignatura)
+  planes_carreras_asignaturas: PlanCarreraAsignatura[];
 }

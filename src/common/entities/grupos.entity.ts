@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Docente } from './docentes.entity';
 import { Carrera } from './carreras.entity';
+import { Plan } from './planes.entity';
 import { GrupoAsignaturaDocente } from './grupo_asignatura_docente.entity';
 
 @Entity('Tbl_Grupos')
@@ -23,6 +24,10 @@ export class Grupo {
 
   @Column({ length: 20 })
   periodo_academico: string;
+
+  @ManyToOne(() => Plan)
+  @JoinColumn({ name: 'id_plan' })
+  plan: Plan;
 
   @ManyToOne(() => Carrera)
   @JoinColumn({ name: 'id_carrera' })
