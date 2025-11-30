@@ -48,15 +48,40 @@ export class GrupoAsignaturaDocenteController {
   @Post('bulk')
   @Public()
   @ApiOperation({
-    summary: 'Asignar múltiples asignaturas con docentes a un grupo',
+    summary: 'Asignar múltiples asignaturas con docentes a un grupo desde un plan',
     description:
-      'Crea múltiples relaciones entre grupo, asignaturas y docentes en una sola operación. Permite enviar un array de asignaturas con sus respectivos docentes. Retorna un resumen con las creadas exitosamente y los errores si los hay.',
+      'Crea múltiples relaciones entre grupo, asignaturas y docentes en una sola operación. **IMPORTANTE**: Debes proporcionar el `id_plan` que debe coincidir con el plan del grupo. Las asignaturas deben pertenecer a ese plan y a la carrera del grupo. Este endpoint es ideal cuando se trabaja desde el módulo de Planes: primero obtienes las asignaturas disponibles del plan usando `GET /planes/:id/carrera/:idCarrera/asignaturas`, luego seleccionas las asignaturas que quieres agregar con sus docentes y las envías aquí. El endpoint valida automáticamente que todas las asignaturas estén disponibles en el plan del grupo. Retorna un resumen con las creadas exitosamente y los errores si los hay.',
   })
   @ApiCreatedResponse({
-    description: 'Asignaciones creadas (puede incluir errores parciales)',
+    description: 'Asignaciones creadas (puede incluir errores parciales). Incluye información del grupo, plan y carrera para referencia.',
     schema: {
       type: 'object',
       properties: {
+        grupo: {
+          type: 'object',
+          description: 'Información del grupo, plan y carrera',
+          properties: {
+            id_grupo: { type: 'number' },
+            codigo_grupo: { type: 'string' },
+            nombre_grupo: { type: 'string' },
+            plan: {
+              type: 'object',
+              properties: {
+                id_plan: { type: 'number' },
+                nombre_plan: { type: 'string' },
+                codigo_plan: { type: 'string' },
+              },
+            },
+            carrera: {
+              type: 'object',
+              properties: {
+                id_carrera: { type: 'number' },
+                nombre_carrera: { type: 'string' },
+                codigo_carrera: { type: 'string' },
+              },
+            },
+          },
+        },
         creadas: {
           type: 'array',
           description: 'Asignaciones creadas exitosamente',

@@ -42,7 +42,7 @@ export class GrupoAsignaturaDocenteService {
 
     if (!grupo.plan) {
       throw new BadRequestException(
-        `El grupo ${grupo.codigo_grupo} no tiene un plan asignado`,
+        `El grupo ${grupo.codigo_grupo} (ID: ${grupo.id_grupo}) no tiene un plan de estudios asignado. Por favor, actualiza el grupo usando PATCH /grupos/${grupo.id_grupo} y proporciona el campo 'id_plan' antes de asignar asignaturas.`,
       );
     }
 
@@ -143,6 +143,21 @@ export class GrupoAsignaturaDocenteService {
   async createBulk(
     createBulkDto: CreateBulkGrupoAsignaturaDocenteDto,
   ): Promise<{
+    grupo: {
+      id_grupo: number;
+      codigo_grupo: string;
+      nombre_grupo: string;
+      plan: {
+        id_plan: number;
+        nombre_plan: string;
+        codigo_plan: string;
+      };
+      carrera: {
+        id_carrera: number;
+        nombre_carrera: string;
+        codigo_carrera: string;
+      };
+    };
     creadas: GrupoAsignaturaDocente[];
     errores: Array<{ asignatura: number; docente: number; error: string }>;
     total: number;
@@ -161,7 +176,14 @@ export class GrupoAsignaturaDocenteService {
 
     if (!grupo.plan) {
       throw new BadRequestException(
-        `El grupo ${grupo.codigo_grupo} no tiene un plan asignado`,
+        `El grupo ${grupo.codigo_grupo} (ID: ${grupo.id_grupo}) no tiene un plan de estudios asignado. Por favor, actualiza el grupo usando PATCH /grupos/${grupo.id_grupo} y proporciona el campo 'id_plan' antes de asignar asignaturas.`,
+      );
+    }
+
+    // Validar que el plan proporcionado coincida con el plan del grupo
+    if (createBulkDto.id_plan !== grupo.plan.id_plan) {
+      throw new BadRequestException(
+        `El plan proporcionado (ID: ${createBulkDto.id_plan}) no coincide con el plan del grupo (ID: ${grupo.plan.id_plan}, ${grupo.plan.nombre_plan}). El grupo debe usar asignaturas del plan ${grupo.plan.nombre_plan}.`,
       );
     }
 
@@ -318,6 +340,21 @@ export class GrupoAsignaturaDocenteService {
     }
 
     return {
+      grupo: {
+        id_grupo: grupo.id_grupo,
+        codigo_grupo: grupo.codigo_grupo,
+        nombre_grupo: grupo.nombre_grupo,
+        plan: {
+          id_plan: grupo.plan.id_plan,
+          nombre_plan: grupo.plan.nombre_plan,
+          codigo_plan: grupo.plan.codigo_plan,
+        },
+        carrera: {
+          id_carrera: grupo.carrera.id_carrera,
+          nombre_carrera: grupo.carrera.nombre_carrera,
+          codigo_carrera: grupo.carrera.codigo_carrera,
+        },
+      },
       creadas,
       errores,
       total: createBulkDto.asignaturas_docentes.length,

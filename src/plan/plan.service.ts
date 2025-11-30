@@ -324,12 +324,13 @@ export class PlanService {
 
   async agregarAsignaturas(
     idPlan: number,
+    idPlanCarrera: number,
     createDto: CreatePlanCarreraAsignaturaDto,
   ) {
     // Validar que el plan-carrera existe y pertenece al plan
     const planCarrera = await this.planCarreraRepo.findOne({
       where: {
-        id_plan_carrera: createDto.id_plan_carrera,
+        id_plan_carrera: idPlanCarrera,
         plan: { id_plan: idPlan },
       },
       relations: ['plan', 'carrera'],
@@ -337,7 +338,7 @@ export class PlanService {
 
     if (!planCarrera) {
       throw new NotFoundException(
-        `No se encontró la relación plan-carrera con ID ${createDto.id_plan_carrera} para el plan ${idPlan}`,
+        `No se encontró la relación plan-carrera con ID ${idPlanCarrera} para el plan ${idPlan}`,
       );
     }
 
@@ -379,7 +380,7 @@ export class PlanService {
         // Validar que no esté ya agregada
         const planCarreraAsigExistente = await this.planCarreraAsigRepo.findOne({
           where: {
-            planCarrera: { id_plan_carrera: createDto.id_plan_carrera },
+            planCarrera: { id_plan_carrera: idPlanCarrera },
             asignatura: { id_asignatura: idAsignatura },
           },
         });

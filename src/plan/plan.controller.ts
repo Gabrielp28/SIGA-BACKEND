@@ -180,10 +180,7 @@ export class PlanController {
     @Param('idPlanCarrera') idPlanCarrera: string,
     @Body() createDto: CreatePlanCarreraAsignaturaDto,
   ) {
-    return this.planService.agregarAsignaturas(+id, {
-      ...createDto,
-      id_plan_carrera: +idPlanCarrera,
-    });
+    return this.planService.agregarAsignaturas(+id, +idPlanCarrera, createDto);
   }
 
   @Get(':id/plan-carrera/:idPlanCarrera/asignaturas')

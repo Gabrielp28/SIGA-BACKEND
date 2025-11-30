@@ -13,7 +13,7 @@ import { Type } from 'class-transformer';
 
 export class AsignaturaDocenteItemDto {
   @ApiProperty({
-    description: 'ID de la asignatura',
+    description: 'ID de la asignatura que debe pertenecer al plan y carrera del grupo',
     example: 1,
   })
   @IsNumber()
@@ -21,7 +21,7 @@ export class AsignaturaDocenteItemDto {
   id_asignatura: number;
 
   @ApiProperty({
-    description: 'ID del docente que imparte la asignatura',
+    description: 'ID del docente que imparte la asignatura en el grupo',
     example: 1,
   })
   @IsNumber()
@@ -31,7 +31,7 @@ export class AsignaturaDocenteItemDto {
 
 export class CreateBulkGrupoAsignaturaDocenteDto {
   @ApiProperty({
-    description: 'ID del grupo',
+    description: 'ID del grupo. El grupo debe tener un plan y carrera asignados.',
     example: 1,
   })
   @IsNumber()
@@ -39,7 +39,15 @@ export class CreateBulkGrupoAsignaturaDocenteDto {
   id_grupo: number;
 
   @ApiProperty({
-    description: 'Array de asignaturas con sus respectivos docentes',
+    description: 'ID del plan de estudios. Debe coincidir con el plan del grupo. Las asignaturas deben pertenecer a este plan. Útil cuando se trabaja desde el módulo de Planes.',
+    example: 1,
+  })
+  @IsNumber()
+  @Min(1)
+  id_plan: number;
+
+  @ApiProperty({
+    description: 'Array de asignaturas con sus respectivos docentes. Las asignaturas deben estar disponibles en el plan del grupo para la carrera del grupo.',
     type: [AsignaturaDocenteItemDto],
     example: [
       { id_asignatura: 1, id_docente: 1 },
