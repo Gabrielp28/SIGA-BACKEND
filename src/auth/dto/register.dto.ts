@@ -1,6 +1,5 @@
-import { IsNotEmpty, IsString, IsEmail, MinLength, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsEmail, MinLength, IsNumber, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { RolEnum } from 'src/common/enums/roles.enum';
 
 export class RegisterDto {
   @ApiProperty({
@@ -30,12 +29,13 @@ export class RegisterDto {
   password: string;
 
   @ApiProperty({
-    description: 'Rol del usuario',
-    example: RolEnum.DOCENTES,
-    enum: RolEnum,
+    description: 'ID del rol a asignar al usuario',
+    example: 1,
+    minimum: 1,
   })
-  @IsNotEmpty({ message: 'El rol es requerido' })
-  @IsEnum(RolEnum, { message: 'El rol debe ser uno de: coordinador, directores, docentes' })
-  rol: RolEnum;
+  @IsNotEmpty({ message: 'El ID del rol es requerido' })
+  @IsNumber({}, { message: 'El ID del rol debe ser un número' })
+  @Min(1, { message: 'El ID del rol debe ser mayor a 0' })
+  id_rol: number;
 }
 

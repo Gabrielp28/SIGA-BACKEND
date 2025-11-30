@@ -105,12 +105,12 @@ export class AuthService {
 
     // Verificar que el rol existe
     const rol = await this.rolRepository.findOne({
-      where: { nombre_rol: registerDto.rol },
+      where: { id_rol: registerDto.id_rol },
     });
 
     if (!rol) {
       throw new NotFoundException(
-        `El rol ${registerDto.rol} no existe en el sistema`,
+        `El rol con ID ${registerDto.id_rol} no existe en el sistema`,
       );
     }
 

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { UsuarioRol } from './usuarios_roles.entity';
 
 @Entity('Tbl_Usuarios')
 export class Usuario {
@@ -25,4 +26,7 @@ export class Usuario {
 
   @Column({ type: 'timestamp', nullable: true })
   fecha_ultimo_acceso: Date;
+
+  @OneToMany(() => UsuarioRol, usuarioRol => usuarioRol.usuario)
+  usuarioRoles: UsuarioRol[];
 }
