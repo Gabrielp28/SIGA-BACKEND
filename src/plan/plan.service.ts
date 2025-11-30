@@ -248,7 +248,34 @@ export class PlanService {
         });
 
         const saved = await this.planCarreraRepo.save(planCarrera);
-        resultados.agregadas.push(saved);
+        
+        // Recargar con relaciones para la respuesta
+        const planCarreraConRelaciones = await this.planCarreraRepo.findOne({
+          where: { id_plan_carrera: saved.id_plan_carrera },
+          relations: ['carrera', 'plan'],
+        });
+        
+        if (!planCarreraConRelaciones) {
+          throw new Error('Error al recargar la relación plan-carrera');
+        }
+        
+        // Construir respuesta sin el array carreras del plan (es redundante)
+        const respuesta = {
+          id_plan_carrera: planCarreraConRelaciones.id_plan_carrera,
+          plan: {
+            id_plan: planCarreraConRelaciones.plan.id_plan,
+            nombre_plan: planCarreraConRelaciones.plan.nombre_plan,
+            codigo_plan: planCarreraConRelaciones.plan.codigo_plan,
+            año: planCarreraConRelaciones.plan.año,
+            descripcion: planCarreraConRelaciones.plan.descripcion,
+            estado: planCarreraConRelaciones.plan.estado,
+            fecha_inicio: planCarreraConRelaciones.plan.fecha_inicio,
+            fecha_fin: planCarreraConRelaciones.plan.fecha_fin,
+          },
+          carrera: planCarreraConRelaciones.carrera,
+        };
+        
+        resultados.agregadas.push(respuesta as any);
         resultados.exitosas++;
       } catch (error) {
         resultados.errores.push({
