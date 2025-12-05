@@ -46,13 +46,14 @@ export class AuthService {
       throw new UnauthorizedException('Usuario inactivo');
     }
 
-    // Obtener roles del usuario
-    const usuarioRoles = await this.usuarioRolRepository.find({
+    // Obtener el rol activo del usuario (solo un rol activo por usuario)
+    const usuarioRol = await this.usuarioRolRepository.findOne({
       where: { id_usuario: user.id_usuario, estado: 'activo' },
       relations: ['rol'],
     });
 
-    const roles = usuarioRoles.map((ur) => ur.rol?.nombre_rol).filter(Boolean);
+    // Solo un rol activo por usuario
+    const roles = usuarioRol?.rol?.nombre_rol ? [usuarioRol.rol.nombre_rol] : [];
 
     const { password: _, ...result } = user;
     return { ...result, roles };

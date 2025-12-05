@@ -473,7 +473,7 @@ export class DocenteService {
     // ========== MÉTODOS PARA EXPERIENCIA LABORAL ==========
 
     async createExperiencia(createDto: CreateExperienciaLaboralDto): Promise<ExperienciaLaboral> {
-        const { id_docente, fecha_inicio, fecha_fin, descripcion_funciones, cargo_ejercido, institucion_empresa } = createDto;
+        const { id_docente, fecha_inicio, fecha_fin, descripcion_funciones, cargo_ejercido, institucion_empresa, documento_url } = createDto;
 
         // Validar que el docente existe
         const docente = await this.docenteRepo.findOne({
@@ -487,6 +487,7 @@ export class DocenteService {
             cargo_ejercido,
             institucion_empresa,
             descripcion_funciones,
+            documento_url,
             docente,
             fecha_inicio: new Date(fecha_inicio),
             fecha_fin: fecha_fin ? new Date(fecha_fin) : (null as any),

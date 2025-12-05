@@ -30,4 +30,7 @@ export class ExperienciaLaboral {
 
   @Column({ type: 'text', nullable: true })
   descripcion_funciones: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  documento_url: string;
 }

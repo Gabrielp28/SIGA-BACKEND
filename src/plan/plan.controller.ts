@@ -57,6 +57,98 @@ export class PlanController {
     return this.planService.findAll(query);
   }
 
+  @Get('carreras/:idCarrera/asignaturas')
+  @Public()
+  @ApiOperation({
+    summary: 'Obtener asignaturas de una carrera',
+    description: 'Obtiene todas las asignaturas asociadas a una carrera específica',
+  })
+  @ApiParam({ name: 'idCarrera', description: 'ID de la carrera', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Listado de asignaturas de la carrera',
+  })
+  @ApiResponse({ status: 404, description: 'Carrera no encontrada' })
+  obtenerAsignaturasPorCarrera(@Param('idCarrera') idCarrera: string) {
+    return this.planService.obtenerAsignaturasPorCarrera(+idCarrera);
+  }
+
+  @Get(':id/details')
+  @Public()
+  @ApiOperation({
+    summary: 'Obtener plan completo con detalles',
+    description:
+      'Obtiene un plan con todas sus carreras y asignaturas en una sola petición. Optimizado para evitar múltiples llamadas HTTP.',
+  })
+  @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Plan con todas sus relaciones',
+    schema: {
+      type: 'object',
+      properties: {
+        id_plan: { type: 'number' },
+        nombre_plan: { type: 'string' },
+        codigo_plan: { type: 'string' },
+        año: { type: 'number' },
+        fecha_inicio: { type: 'string', format: 'date' },
+        fecha_fin: { type: 'string', format: 'date' },
+        descripcion: { type: 'string' },
+        estado: { type: 'string' },
+        carreras: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id_plan_carrera: { type: 'number' },
+              id_plan: { type: 'number' },
+              id_carrera: { type: 'number' },
+              carrera: {
+                type: 'object',
+                properties: {
+                  id_carrera: { type: 'number' },
+                  nombre_carrera: { type: 'string' },
+                  codigo_carrera: { type: 'string' },
+                  id_departamento: { type: 'number' },
+                },
+              },
+              asignaturas: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id_plan_carrera_asignatura: { type: 'number' },
+                    id_plan_carrera: { type: 'number' },
+                    id_asignatura: { type: 'number' },
+                    asignatura: {
+                      type: 'object',
+                      properties: {
+                        id_asignatura: { type: 'number' },
+                        nombre_asignatura: { type: 'string' },
+                        codigo_asignatura: { type: 'string' },
+                        id_carrera: { type: 'number' },
+                        creditos: { type: 'number' },
+                        horas_semanales: { type: 'number' },
+                        semestre: { type: 'number' },
+                        tipo: { type: 'string' },
+                        estado: { type: 'string' },
+                        prerequisitos: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Plan no encontrado' })
+  obtenerPlanConDetalles(@Param('id') id: string) {
+    return this.planService.obtenerPlanConDetalles(+id);
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Obtener plan por ID',
@@ -159,34 +251,11 @@ export class PlanController {
 
   // ========== ENDPOINTS PARA ASIGNATURAS ==========
 
-  @Post(':id/plan-carrera/:idPlanCarrera/asignaturas')
+  @Get(':id/carreras/:idPlanCarrera/asignaturas')
   @Public()
   @ApiOperation({
-    summary: 'Agregar asignaturas a un plan-carrera',
-    description:
-      'Agrega múltiples asignaturas a un plan-carrera. Las asignaturas deben pertenecer a la carrera del plan-carrera.',
-  })
-  @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
-  @ApiParam({
-    name: 'idPlanCarrera',
-    description: 'ID de la relación plan-carrera',
-    type: Number,
-  })
-  @ApiCreatedResponse({
-    description: 'Asignaturas agregadas (puede incluir errores parciales)',
-  })
-  agregarAsignaturas(
-    @Param('id') id: string,
-    @Param('idPlanCarrera') idPlanCarrera: string,
-    @Body() createDto: CreatePlanCarreraAsignaturaDto,
-  ) {
-    return this.planService.agregarAsignaturas(+id, +idPlanCarrera, createDto);
-  }
-
-  @Get(':id/plan-carrera/:idPlanCarrera/asignaturas')
-  @ApiOperation({
-    summary: 'Obtener asignaturas de un plan-carrera',
-    description: 'Obtiene todas las asignaturas asociadas a un plan-carrera específico',
+    summary: 'Obtener asignaturas de una carrera en un plan',
+    description: 'Obtiene todas las asignaturas asociadas a una carrera específica en un plan',
   })
   @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
   @ApiParam({
@@ -197,6 +266,26 @@ export class PlanController {
   @ApiResponse({
     status: 200,
     description: 'Listado de asignaturas del plan-carrera',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id_plan_carrera_asignatura: { type: 'number' },
+          id_plan_carrera: { type: 'number' },
+          id_asignatura: { type: 'number' },
+          asignatura: {
+            type: 'object',
+            properties: {
+              id_asignatura: { type: 'number' },
+              nombre_asignatura: { type: 'string' },
+              codigo_asignatura: { type: 'string' },
+              id_carrera: { type: 'number' },
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({ status: 404, description: 'Plan o plan-carrera no encontrado' })
   obtenerAsignaturas(
@@ -204,6 +293,32 @@ export class PlanController {
     @Param('idPlanCarrera') idPlanCarrera: string,
   ) {
     return this.planService.obtenerAsignaturas(+id, +idPlanCarrera);
+  }
+
+  @Post(':id/carreras/:idPlanCarrera/asignaturas')
+  @Public()
+  @ApiOperation({
+    summary: 'Agregar una o múltiples asignaturas a una carrera en un plan',
+    description:
+      'Agrega asignaturas a un plan-carrera. Puede agregar una (id_asignatura) o múltiples (id_asignaturas). Las asignaturas deben pertenecer a la carrera del plan-carrera.',
+  })
+  @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
+  @ApiParam({
+    name: 'idPlanCarrera',
+    description: 'ID de la relación plan-carrera',
+    type: Number,
+  })
+  @ApiCreatedResponse({
+    description: 'Asignatura(s) agregada(s) correctamente',
+  })
+  @ApiResponse({ status: 404, description: 'Plan, plan-carrera o asignatura no encontrada' })
+  @ApiResponse({ status: 400, description: 'Asignatura ya existe o no pertenece a la carrera' })
+  agregarAsignaturas(
+    @Param('id') id: string,
+    @Param('idPlanCarrera') idPlanCarrera: string,
+    @Body() createDto: CreatePlanCarreraAsignaturaDto,
+  ) {
+    return this.planService.agregarAsignaturas(+id, +idPlanCarrera, createDto);
   }
 
   @Get(':id/carrera/:idCarrera/asignaturas')
@@ -226,9 +341,10 @@ export class PlanController {
     return this.planService.obtenerAsignaturasPorPlanYCarrera(+id, +idCarrera);
   }
 
-  @Delete(':id/plan-carrera/:idPlanCarrera/asignaturas/:idPlanCarreraAsignatura')
+  @Delete(':id/carreras/:idPlanCarrera/asignaturas/:idPlanCarreraAsignatura')
+  @Public()
   @ApiOperation({
-    summary: 'Remover asignatura de un plan-carrera',
+    summary: 'Eliminar una asignatura de una carrera en un plan',
     description: 'Elimina una asignatura específica de un plan-carrera',
   })
   @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
@@ -244,15 +360,17 @@ export class PlanController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Asignatura removida correctamente',
+    description: 'Asignatura eliminada correctamente',
   })
-  @ApiResponse({ status: 404, description: 'Relación no encontrada' })
-  removerAsignatura(
+  @ApiResponse({ status: 204, description: 'Asignatura eliminada (No Content)' })
+  @ApiResponse({ status: 404, description: 'Plan, plan-carrera o relación no encontrada' })
+  async removerAsignatura(
     @Param('id') id: string,
     @Param('idPlanCarrera') idPlanCarrera: string,
     @Param('idPlanCarreraAsignatura') idPlanCarreraAsignatura: string,
   ) {
-    return this.planService.removerAsignatura(+id, +idPlanCarrera, +idPlanCarreraAsignatura);
+    await this.planService.removerAsignatura(+id, +idPlanCarrera, +idPlanCarreraAsignatura);
+    return { message: 'Asignatura eliminada correctamente' };
   }
 }
 

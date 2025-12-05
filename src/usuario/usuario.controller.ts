@@ -125,7 +125,7 @@ export class UsuarioController {
   @Public()
   @ApiOperation({
     summary: 'Asignar rol a usuario',
-    description: 'Asigna un nuevo rol a un usuario. El usuario no puede tener el mismo rol asignado dos veces.',
+    description: 'Asigna un rol a un usuario. Si el usuario ya tiene un rol activo, se desactiva automáticamente. Solo un rol activo por usuario.',
   })
   @ApiParam({ name: 'id', description: 'ID del usuario', type: Number })
   @ApiCreatedResponse({

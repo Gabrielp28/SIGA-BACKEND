@@ -74,11 +74,15 @@ class ExperienciaResumenDto {
   @ApiProperty()
   institucion_empresa: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  documento_url?: string | null;
+
   static fromEntity(experiencia: ExperienciaLaboral): ExperienciaResumenDto {
     const dto = new ExperienciaResumenDto();
     dto.id_experiencia = experiencia.id_experiencia;
     dto.cargo_ejercido = experiencia.cargo_ejercido;
     dto.institucion_empresa = experiencia.institucion_empresa;
+    dto.documento_url = experiencia.documento_url ?? null;
     return dto;
   }
 }

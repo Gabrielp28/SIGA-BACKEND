@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_docente.entity';
@@ -7,10 +7,17 @@ import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { PlanCarrera } from 'src/common/entities/plan_carrera.entity';
 import { PlanCarreraAsignatura } from 'src/common/entities/plan_carrera_asignatura.entity';
+import { CargaDocenteVersion, EstadoVersion } from 'src/common/entities/carga_docente_version.entity';
+import { Usuario } from 'src/common/entities/usuarios.entity';
 import { CreateGrupoAsignaturaDocenteDto } from './dto/create-grupo-asignatura-docente.dto';
 import { CreateBulkGrupoAsignaturaDocenteDto } from './dto/create-bulk-grupo-asignatura-docente.dto';
 import { UpdateGrupoAsignaturaDocenteDto } from './dto/update-grupo-asignatura-docente.dto';
 import { QueryGrupoAsignaturaDocenteDto } from './dto/query-grupo-asignatura-docente.dto';
+import { CrearVersionInicialDto } from './dto/crear-version-inicial.dto';
+import { EnviarRevisionDto } from './dto/enviar-revision.dto';
+import { RevisarCargaDto } from './dto/revisar-carga.dto';
+import { AprobarFinalDto } from './dto/aprobar-final.dto';
+import { RolEnum } from 'src/common/enums/roles.enum';
 
 @Injectable()
 export class GrupoAsignaturaDocenteService {
@@ -27,6 +34,10 @@ export class GrupoAsignaturaDocenteService {
     private readonly planCarreraRepo: Repository<PlanCarrera>,
     @InjectRepository(PlanCarreraAsignatura)
     private readonly planCarreraAsigRepo: Repository<PlanCarreraAsignatura>,
+    @InjectRepository(CargaDocenteVersion)
+    private readonly versionRepo: Repository<CargaDocenteVersion>,
+    @InjectRepository(Usuario)
+    private readonly usuarioRepo: Repository<Usuario>,
   ) {}
 
   async create(createDto: CreateGrupoAsignaturaDocenteDto): Promise<GrupoAsignaturaDocente> {
@@ -541,6 +552,606 @@ export class GrupoAsignaturaDocenteService {
     }
 
     return await this.grupoAsigDocRepo.count({ where });
+  }
+
+  // ========== MÉTODOS PARA FLUJO DE APROBACIÓN Y VERSIONAMIENTO ==========
+
+  /**
+   * Crear versión inicial de carga docente (Coordinador de Carrera)
+   */
+  async crearVersionInicial(
+    createDto: CrearVersionInicialDto,
+    idUsuario: number,
+  ): Promise<GrupoAsignaturaDocente> {
+    // Validar que el usuario tiene rol de coordinador
+    const usuario = await this.usuarioRepo.findOne({
+      where: { id_usuario: idUsuario },
+      relations: ['usuarioRoles', 'usuarioRoles.rol'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${idUsuario} no encontrado`);
+    }
+
+    const tieneRolCoordinador = usuario.usuarioRoles?.some(
+      (ur) => ur.rol?.nombre_rol === RolEnum.COORDINADOR && ur.estado === 'activo',
+    );
+
+    if (!tieneRolCoordinador) {
+      throw new ForbiddenException('Solo los coordinadores de carrera pueden crear versiones iniciales');
+    }
+
+    // Validar que el grupo existe
+    const grupo = await this.grupoRepo.findOne({
+      where: { id_grupo: createDto.id_grupo },
+      relations: ['plan', 'carrera'],
+    });
+
+    if (!grupo) {
+      throw new NotFoundException(`Grupo con ID ${createDto.id_grupo} no encontrado`);
+    }
+
+    // Validar que la asignatura existe
+    const asignatura = await this.asignaturaRepo.findOne({
+      where: { id_asignatura: createDto.id_asignatura },
+    });
+
+    if (!asignatura) {
+      throw new NotFoundException(`Asignatura con ID ${createDto.id_asignatura} no encontrada`);
+    }
+
+    // Validar que el docente existe
+    const docente = await this.docenteRepo.findOne({
+      where: { id_docente: createDto.id_docente },
+    });
+
+    if (!docente) {
+      throw new NotFoundException(`Docente con ID ${createDto.id_docente} no encontrado`);
+    }
+
+    // Verificar si ya existe una asignación para este grupo-asignatura
+    const asignacionExistente = await this.grupoAsigDocRepo.findOne({
+      where: {
+        grupo: { id_grupo: createDto.id_grupo },
+        asignatura: { id_asignatura: createDto.id_asignatura },
+      },
+    });
+
+    let grupoAsigDoc: GrupoAsignaturaDocente;
+
+    if (asignacionExistente) {
+      // Actualizar la asignación existente
+      grupoAsigDoc = asignacionExistente;
+      grupoAsigDoc.docente = docente;
+      grupoAsigDoc.estado = createDto.estado || 'activa';
+      grupoAsigDoc.observaciones = createDto.observaciones ?? null;
+      grupoAsigDoc.version_actual += 1;
+    } else {
+      // Crear nueva asignación
+      grupoAsigDoc = this.grupoAsigDocRepo.create({
+        grupo,
+        asignatura,
+        docente,
+        estado: createDto.estado || 'activa',
+        observaciones: createDto.observaciones,
+        estado_aprobacion: 'borrador',
+        version_actual: 1,
+        fecha_creacion_inicial: new Date(),
+      });
+    }
+
+    // Asignar coordinador
+    grupoAsigDoc.coordinador_carrera = usuario;
+    grupoAsigDoc.observaciones_coordinador = createDto.observaciones || null;
+
+    // Guardar asignación
+    const saved = await this.grupoAsigDocRepo.save(grupoAsigDoc);
+
+    // Crear versión inicial
+    const version = this.versionRepo.create({
+      grupo_asignatura_docente: saved,
+      version: saved.version_actual,
+      estado_version: EstadoVersion.INICIAL,
+      usuario_creador: usuario,
+      fecha_creacion: new Date(),
+      datos_version: {
+        id_grupo: grupo.id_grupo,
+        id_asignatura: asignatura.id_asignatura,
+        id_docente: docente.id_docente,
+        estado: saved.estado,
+        observaciones: saved.observaciones ?? undefined,
+      },
+      observaciones: createDto.observaciones ?? null,
+      activa: true,
+    });
+
+    // Desactivar versiones anteriores
+    await this.versionRepo.update(
+      {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+        activa: true,
+      },
+      { activa: false },
+    );
+
+    await this.versionRepo.save(version);
+
+    const result = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+      relations: ['grupo', 'asignatura', 'docente', 'coordinador_carrera', 'versiones'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Error al recuperar la carga docente creada');
+    }
+
+    return result;
+  }
+
+  /**
+   * Enviar carga docente a revisión (Coordinador de Carrera)
+   */
+  async enviarRevision(
+    id: number,
+    dto: EnviarRevisionDto,
+    idUsuario: number,
+  ): Promise<GrupoAsignaturaDocente> {
+    const grupoAsigDoc = await this.findOne(id);
+
+    // Validar que el usuario es el coordinador que creó la versión
+    if (grupoAsigDoc.coordinador_carrera?.id_usuario !== idUsuario) {
+      throw new ForbiddenException('Solo el coordinador que creó esta carga puede enviarla a revisión');
+    }
+
+    // Validar estado
+    if (grupoAsigDoc.estado_aprobacion !== 'borrador') {
+      throw new BadRequestException(
+        `Solo se pueden enviar a revisión cargas en estado 'borrador'. Estado actual: ${grupoAsigDoc.estado_aprobacion}`,
+      );
+    }
+
+    grupoAsigDoc.estado_aprobacion = 'pendiente_revision';
+    if (dto.observaciones) {
+      grupoAsigDoc.observaciones_coordinador = dto.observaciones;
+    }
+
+    return await this.grupoAsigDocRepo.save(grupoAsigDoc);
+  }
+
+  /**
+   * Revisar carga docente (Director de Departamento)
+   */
+  async revisarCarga(
+    id: number,
+    dto: RevisarCargaDto,
+    idUsuario: number,
+  ): Promise<GrupoAsignaturaDocente> {
+    const grupoAsigDoc = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: id },
+      relations: ['grupo', 'asignatura', 'docente', 'coordinador_carrera', 'versiones'],
+    });
+
+    if (!grupoAsigDoc) {
+      throw new NotFoundException(`Carga docente con ID ${id} no encontrada`);
+    }
+
+    // Validar que el usuario tiene rol de director
+    const usuario = await this.usuarioRepo.findOne({
+      where: { id_usuario: idUsuario },
+      relations: ['usuarioRoles', 'usuarioRoles.rol'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${idUsuario} no encontrado`);
+    }
+
+    const tieneRolDirector = usuario.usuarioRoles?.some(
+      (ur) => ur.rol?.nombre_rol === RolEnum.DIRECTORES && ur.estado === 'activo',
+    );
+
+    if (!tieneRolDirector) {
+      throw new ForbiddenException('Solo los directores de departamento pueden revisar cargas');
+    }
+
+    // Validar estado
+    if (grupoAsigDoc.estado_aprobacion !== 'pendiente_revision') {
+      throw new BadRequestException(
+        `Solo se pueden revisar cargas en estado 'pendiente_revision'. Estado actual: ${grupoAsigDoc.estado_aprobacion}`,
+      );
+    }
+
+    // Obtener versión anterior para comparar cambios
+    const versionAnterior = await this.versionRepo.findOne({
+      where: {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: id },
+        activa: true,
+      },
+      order: { version: 'DESC' },
+    });
+
+    const cambios: Array<{ campo: string; valor_anterior: any; valor_nuevo: any }> = [];
+
+    // Aplicar cambios si se proporcionaron
+    if (dto.cambios) {
+      if (dto.cambios.id_docente && dto.cambios.id_docente !== grupoAsigDoc.docente.id_docente) {
+        const nuevoDocente = await this.docenteRepo.findOne({
+          where: { id_docente: dto.cambios.id_docente },
+        });
+        if (!nuevoDocente) {
+          throw new NotFoundException(`Docente con ID ${dto.cambios.id_docente} no encontrado`);
+        }
+        cambios.push({
+          campo: 'id_docente',
+          valor_anterior: grupoAsigDoc.docente.id_docente,
+          valor_nuevo: dto.cambios.id_docente,
+        });
+        grupoAsigDoc.docente = nuevoDocente;
+      }
+
+      if (dto.cambios.estado && dto.cambios.estado !== grupoAsigDoc.estado) {
+        cambios.push({
+          campo: 'estado',
+          valor_anterior: grupoAsigDoc.estado,
+          valor_nuevo: dto.cambios.estado,
+        });
+        grupoAsigDoc.estado = dto.cambios.estado;
+      }
+
+      if (dto.cambios.observaciones !== undefined) {
+        cambios.push({
+          campo: 'observaciones',
+          valor_anterior: grupoAsigDoc.observaciones,
+          valor_nuevo: dto.cambios.observaciones,
+        });
+        grupoAsigDoc.observaciones = dto.cambios.observaciones;
+      }
+    }
+
+    // Actualizar estado según aprobación
+    if (dto.aprobado) {
+      grupoAsigDoc.estado_aprobacion = 'revisada';
+      grupoAsigDoc.director_departamento = usuario;
+      grupoAsigDoc.fecha_revision = new Date();
+      grupoAsigDoc.observaciones_director = dto.observaciones || null;
+    } else {
+      grupoAsigDoc.estado_aprobacion = 'borrador';
+      grupoAsigDoc.observaciones_director = dto.observaciones || 'Rechazada por el director';
+    }
+
+    const saved = await this.grupoAsigDocRepo.save(grupoAsigDoc);
+
+    // Crear nueva versión si fue aprobada
+    if (dto.aprobado) {
+      grupoAsigDoc.version_actual += 1;
+    const nuevaVersion = this.versionRepo.create({
+      grupo_asignatura_docente: saved,
+      version: grupoAsigDoc.version_actual,
+      estado_version: EstadoVersion.REVISADA,
+      usuario_creador: grupoAsigDoc.coordinador_carrera || undefined,
+      usuario_revisor: usuario || undefined,
+      fecha_creacion: versionAnterior?.fecha_creacion || new Date(),
+      fecha_revision: new Date(),
+      datos_version: {
+        id_grupo: saved.grupo.id_grupo,
+        id_asignatura: saved.asignatura.id_asignatura,
+        id_docente: saved.docente.id_docente,
+        estado: saved.estado,
+        observaciones: saved.observaciones || undefined,
+      },
+      cambios: cambios.length > 0 ? cambios : null,
+      observaciones: dto.observaciones || null,
+      activa: true,
+    });
+
+      // Desactivar versiones anteriores
+      await this.versionRepo.update(
+        {
+          grupo_asignatura_docente: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+          activa: true,
+        },
+        { activa: false },
+      );
+
+      await this.versionRepo.save(nuevaVersion);
+      await this.grupoAsigDocRepo.save(grupoAsigDoc);
+    }
+
+    const result = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+      relations: ['grupo', 'asignatura', 'docente', 'coordinador_carrera', 'director_departamento', 'versiones'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Error al recuperar la carga docente revisada');
+    }
+
+    return result;
+  }
+
+  /**
+   * Aprobar final (Administrador)
+   */
+  async aprobarFinal(
+    id: number,
+    dto: AprobarFinalDto,
+    idUsuario: number,
+  ): Promise<GrupoAsignaturaDocente> {
+    const grupoAsigDoc = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: id },
+      relations: ['grupo', 'asignatura', 'docente', 'coordinador_carrera', 'director_departamento', 'versiones'],
+    });
+
+    if (!grupoAsigDoc) {
+      throw new NotFoundException(`Carga docente con ID ${id} no encontrada`);
+    }
+
+    // Validar que el usuario tiene rol de administrador
+    const usuario = await this.usuarioRepo.findOne({
+      where: { id_usuario: idUsuario },
+      relations: ['usuarioRoles', 'usuarioRoles.rol'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${idUsuario} no encontrado`);
+    }
+
+    const tieneRolAdmin = usuario.usuarioRoles?.some(
+      (ur) => ur.rol?.nombre_rol === RolEnum.ADMINISTRADOR && ur.estado === 'activo',
+    );
+
+    if (!tieneRolAdmin) {
+      throw new ForbiddenException('Solo los administradores pueden dar aprobación final');
+    }
+
+    // Validar estado
+    if (grupoAsigDoc.estado_aprobacion !== 'revisada') {
+      throw new BadRequestException(
+        `Solo se pueden aprobar cargas en estado 'revisada'. Estado actual: ${grupoAsigDoc.estado_aprobacion}`,
+      );
+    }
+
+    grupoAsigDoc.estado_aprobacion = 'aprobada';
+    grupoAsigDoc.administrador = usuario;
+    grupoAsigDoc.fecha_aprobacion_final = new Date();
+    grupoAsigDoc.observaciones_administrador = dto.observaciones || null;
+
+    const saved = await this.grupoAsigDocRepo.save(grupoAsigDoc);
+
+    // Crear versión aprobada
+    const versionRevisada = await this.versionRepo.findOne({
+      where: {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: id },
+        activa: true,
+      },
+      order: { version: 'DESC' },
+    });
+
+    if (versionRevisada) {
+      grupoAsigDoc.version_actual += 1;
+      const versionAprobada = this.versionRepo.create({
+        grupo_asignatura_docente: saved,
+        version: grupoAsigDoc.version_actual,
+        estado_version: EstadoVersion.APROBADA,
+        usuario_creador: grupoAsigDoc.coordinador_carrera || undefined,
+        usuario_revisor: grupoAsigDoc.director_departamento || undefined,
+        usuario_aprobador: usuario || undefined,
+        fecha_creacion: versionRevisada.fecha_creacion,
+        fecha_revision: versionRevisada.fecha_revision,
+        fecha_aprobacion: new Date(),
+        datos_version: {
+          id_grupo: saved.grupo.id_grupo,
+          id_asignatura: saved.asignatura.id_asignatura,
+          id_docente: saved.docente.id_docente,
+          estado: saved.estado,
+          observaciones: saved.observaciones || undefined,
+        },
+        cambios: versionRevisada.cambios,
+        observaciones: dto.observaciones || null,
+        activa: true,
+      });
+
+      // Desactivar versiones anteriores
+      await this.versionRepo.update(
+        {
+          grupo_asignatura_docente: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+          activa: true,
+        },
+        { activa: false },
+      );
+
+      await this.versionRepo.save(versionAprobada);
+      await this.grupoAsigDocRepo.save(grupoAsigDoc);
+    }
+
+    const result = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+      relations: ['grupo', 'asignatura', 'docente', 'coordinador_carrera', 'director_departamento', 'administrador', 'versiones'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Error al recuperar la carga docente aprobada');
+    }
+
+    return result;
+  }
+
+  /**
+   * Obtener historial de versiones de una carga docente
+   */
+  async obtenerVersiones(id: number): Promise<CargaDocenteVersion[]> {
+    const grupoAsigDoc = await this.findOne(id);
+
+    return await this.versionRepo.find({
+      where: {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: grupoAsigDoc.id_grupo_asignatura_docente },
+      },
+      relations: ['usuario_creador', 'usuario_revisor', 'usuario_aprobador'],
+      order: { version: 'ASC' },
+    });
+  }
+
+  /**
+   * Comparar dos versiones
+   */
+  async compararVersiones(
+    id: number,
+    version1: number,
+    version2: number,
+  ): Promise<{
+    version1: CargaDocenteVersion;
+    version2: CargaDocenteVersion;
+    diferencias: Array<{ campo: string; valor_v1: any; valor_v2: any }>;
+  }> {
+    const grupoAsigDoc = await this.findOne(id);
+
+    const v1 = await this.versionRepo.findOne({
+      where: {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: grupoAsigDoc.id_grupo_asignatura_docente },
+        version: version1,
+      },
+    });
+
+    const v2 = await this.versionRepo.findOne({
+      where: {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: grupoAsigDoc.id_grupo_asignatura_docente },
+        version: version2,
+      },
+    });
+
+    if (!v1 || !v2) {
+      throw new NotFoundException('Una o ambas versiones no encontradas');
+    }
+
+    const diferencias: Array<{ campo: string; valor_v1: any; valor_v2: any }> = [];
+    const datos1 = v1.datos_version;
+    const datos2 = v2.datos_version;
+
+    if (datos1 && datos2) {
+      Object.keys(datos1).forEach((key) => {
+        if (datos1[key] !== datos2[key]) {
+          diferencias.push({
+            campo: key,
+            valor_v1: datos1[key],
+            valor_v2: datos2[key],
+          });
+        }
+      });
+    }
+
+    return {
+      version1: v1,
+      version2: v2,
+      diferencias,
+    };
+  }
+
+  /**
+   * Restaurar a una versión anterior
+   */
+  async restaurarVersion(
+    id: number,
+    versionId: number,
+    idUsuario: number,
+  ): Promise<GrupoAsignaturaDocente> {
+    const grupoAsigDoc = await this.findOne(id);
+    const version = await this.versionRepo.findOne({
+      where: {
+        id_version: versionId,
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: grupoAsigDoc.id_grupo_asignatura_docente },
+      },
+      relations: ['usuario_creador'],
+    });
+
+    if (!version) {
+      throw new NotFoundException(`Versión con ID ${versionId} no encontrada`);
+    }
+
+    // Validar permisos (solo coordinador o administrador)
+    const usuario = await this.usuarioRepo.findOne({
+      where: { id_usuario: idUsuario },
+      relations: ['usuarioRoles', 'usuarioRoles.rol'],
+    });
+
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con ID ${idUsuario} no encontrado`);
+    }
+
+    const tienePermiso = usuario.usuarioRoles?.some(
+      (ur) =>
+        (ur.rol?.nombre_rol === RolEnum.COORDINADOR || ur.rol?.nombre_rol === RolEnum.ADMINISTRADOR) &&
+        ur.estado === 'activo',
+    );
+
+    if (!tienePermiso) {
+      throw new ForbiddenException('No tiene permisos para restaurar versiones');
+    }
+
+    // Restaurar datos de la versión
+    if (version.datos_version) {
+      const datos = version.datos_version;
+
+      if (datos.id_docente) {
+        const docente = await this.docenteRepo.findOne({
+          where: { id_docente: datos.id_docente },
+        });
+        if (docente) {
+          grupoAsigDoc.docente = docente;
+        }
+      }
+
+      if (datos.estado) {
+        grupoAsigDoc.estado = datos.estado;
+      }
+
+      if (datos.observaciones !== undefined) {
+        grupoAsigDoc.observaciones = datos.observaciones;
+      }
+    }
+
+    // Crear nueva versión con los datos restaurados
+    grupoAsigDoc.version_actual += 1;
+    grupoAsigDoc.estado_aprobacion = 'borrador';
+
+    const saved = await this.grupoAsigDocRepo.save(grupoAsigDoc);
+
+    const nuevaVersion = this.versionRepo.create({
+      grupo_asignatura_docente: saved,
+      version: grupoAsigDoc.version_actual,
+      estado_version: EstadoVersion.INICIAL,
+      usuario_creador: usuario,
+      fecha_creacion: new Date(),
+      datos_version: {
+        id_grupo: saved.grupo.id_grupo,
+        id_asignatura: saved.asignatura.id_asignatura,
+        id_docente: saved.docente.id_docente,
+        estado: saved.estado,
+        observaciones: saved.observaciones ?? undefined,
+      },
+      observaciones: `Restaurada desde versión ${version.version}`,
+      activa: true,
+    });
+
+    // Desactivar versiones anteriores
+    await this.versionRepo.update(
+      {
+        grupo_asignatura_docente: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+        activa: true,
+      },
+      { activa: false },
+    );
+
+    await this.versionRepo.save(nuevaVersion);
+
+    const result = await this.grupoAsigDocRepo.findOne({
+      where: { id_grupo_asignatura_docente: saved.id_grupo_asignatura_docente },
+      relations: ['grupo', 'asignatura', 'docente', 'versiones'],
+    });
+
+    if (!result) {
+      throw new NotFoundException('Error al recuperar la carga docente restaurada');
+    }
+
+    return result;
   }
 }
 

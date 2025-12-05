@@ -327,6 +327,15 @@ export class PlanService {
     idPlanCarrera: number,
     createDto: CreatePlanCarreraAsignaturaDto,
   ) {
+    // Validar que el plan existe
+    const plan = await this.planRepo.findOne({
+      where: { id_plan: idPlan },
+    });
+
+    if (!plan) {
+      throw new NotFoundException(`Plan con ID ${idPlan} no encontrado`);
+    }
+
     // Validar que el plan-carrera existe y pertenece al plan
     const planCarrera = await this.planCarreraRepo.findOne({
       where: {
@@ -342,15 +351,23 @@ export class PlanService {
       );
     }
 
-    const resultados = {
-      agregadas: [] as PlanCarreraAsignatura[],
-      errores: [] as Array<{ id_asignatura: number; error: string }>,
-      total: createDto.id_asignaturas.length,
-      exitosas: 0,
-      fallidas: 0,
-    };
+    // Determinar si es una o múltiples asignaturas
+    const idAsignaturas: number[] = createDto.id_asignaturas
+      ? createDto.id_asignaturas
+      : createDto.id_asignatura
+        ? [createDto.id_asignatura]
+        : [];
 
-    for (const idAsignatura of createDto.id_asignaturas) {
+    if (idAsignaturas.length === 0) {
+      throw new BadRequestException(
+        'Debe proporcionar id_asignatura o id_asignaturas',
+      );
+    }
+
+    const resultados: any[] = [];
+    const errores: Array<{ id_asignatura: number; error: string }> = [];
+
+    for (const idAsignatura of idAsignaturas) {
       try {
         // Validar que la asignatura existe
         const asignatura = await this.asignaturaRepo.findOne({
@@ -359,21 +376,19 @@ export class PlanService {
         });
 
         if (!asignatura) {
-          resultados.errores.push({
+          errores.push({
             id_asignatura: idAsignatura,
             error: `Asignatura con ID ${idAsignatura} no encontrada`,
           });
-          resultados.fallidas++;
           continue;
         }
 
         // Validar que la asignatura pertenece a la carrera del plan-carrera
         if (asignatura.carrera.id_carrera !== planCarrera.carrera.id_carrera) {
-          resultados.errores.push({
+          errores.push({
             id_asignatura: idAsignatura,
             error: `La asignatura ${asignatura.nombre_asignatura} no pertenece a la carrera ${planCarrera.carrera.nombre_carrera}`,
           });
-          resultados.fallidas++;
           continue;
         }
 
@@ -386,11 +401,10 @@ export class PlanService {
         });
 
         if (planCarreraAsigExistente) {
-          resultados.errores.push({
+          errores.push({
             id_asignatura: idAsignatura,
             error: `La asignatura ${asignatura.nombre_asignatura} ya está agregada al plan-carrera`,
           });
-          resultados.fallidas++;
           continue;
         }
 
@@ -401,21 +415,62 @@ export class PlanService {
         });
 
         const saved = await this.planCarreraAsigRepo.save(planCarreraAsig);
-        resultados.agregadas.push(saved);
-        resultados.exitosas++;
-      } catch (error) {
-        resultados.errores.push({
+        
+        // Cargar la relación completa para retornar
+        const savedWithRelations = await this.planCarreraAsigRepo.findOne({
+          where: { id_plan_carrera_asignatura: saved.id_plan_carrera_asignatura },
+          relations: ['asignatura', 'asignatura.carrera', 'planCarrera'],
+        });
+
+        if (savedWithRelations) {
+          // Transformar a la estructura esperada
+          const resultado = {
+            id_plan_carrera_asignatura: savedWithRelations.id_plan_carrera_asignatura,
+            id_plan_carrera: savedWithRelations.planCarrera?.id_plan_carrera || idPlanCarrera,
+            id_asignatura: savedWithRelations.asignatura?.id_asignatura,
+            asignatura: savedWithRelations.asignatura
+              ? {
+                  id_asignatura: savedWithRelations.asignatura.id_asignatura,
+                  nombre_asignatura: savedWithRelations.asignatura.nombre_asignatura,
+                  codigo_asignatura: savedWithRelations.asignatura.codigo_asignatura,
+                  id_carrera: savedWithRelations.asignatura.carrera?.id_carrera,
+                }
+              : undefined,
+          };
+          resultados.push(resultado);
+        }
+      } catch (error: any) {
+        errores.push({
           id_asignatura: idAsignatura,
           error: error.message || 'Error desconocido',
         });
-        resultados.fallidas++;
       }
     }
 
-    return resultados;
+    // Si hay errores y no se agregó ninguna, lanzar excepción
+    if (errores.length > 0 && resultados.length === 0) {
+      throw new BadRequestException(
+        `No se pudo agregar ninguna asignatura. Errores: ${errores.map((e) => e.error).join(', ')}`,
+      );
+    }
+
+    // Si es una sola asignatura, retornar el objeto directamente
+    // Si son múltiples, retornar el array
+    return resultados.length === 1 && !createDto.id_asignaturas
+      ? resultados[0]
+      : resultados;
   }
 
   async obtenerAsignaturas(idPlan: number, idPlanCarrera: number) {
+    // Validar que el plan existe
+    const plan = await this.planRepo.findOne({
+      where: { id_plan: idPlan },
+    });
+
+    if (!plan) {
+      throw new NotFoundException(`Plan con ID ${idPlan} no encontrado`);
+    }
+
     // Validar que el plan-carrera existe y pertenece al plan
     const planCarrera = await this.planCarreraRepo.findOne({
       where: {
@@ -430,11 +485,26 @@ export class PlanService {
       );
     }
 
-    return await this.planCarreraAsigRepo.find({
+    const asignaturas = await this.planCarreraAsigRepo.find({
       where: { planCarrera: { id_plan_carrera: idPlanCarrera } },
-      relations: ['asignatura', 'asignatura.carrera'],
+      relations: ['asignatura', 'asignatura.carrera', 'planCarrera'],
       order: { id_plan_carrera_asignatura: 'ASC' },
     });
+
+    // Transformar a la estructura esperada
+    return asignaturas.map((pca) => ({
+      id_plan_carrera_asignatura: pca.id_plan_carrera_asignatura,
+      id_plan_carrera: pca.planCarrera?.id_plan_carrera || idPlanCarrera,
+      id_asignatura: pca.asignatura?.id_asignatura,
+      asignatura: pca.asignatura
+        ? {
+            id_asignatura: pca.asignatura.id_asignatura,
+            nombre_asignatura: pca.asignatura.nombre_asignatura,
+            codigo_asignatura: pca.asignatura.codigo_asignatura,
+            id_carrera: pca.asignatura.carrera?.id_carrera,
+          }
+        : undefined,
+    }));
   }
 
   async removerAsignatura(
@@ -442,6 +512,15 @@ export class PlanService {
     idPlanCarrera: number,
     idPlanCarreraAsignatura: number,
   ): Promise<void> {
+    // Validar que el plan existe
+    const plan = await this.planRepo.findOne({
+      where: { id_plan: idPlan },
+    });
+
+    if (!plan) {
+      throw new NotFoundException(`Plan con ID ${idPlan} no encontrado`);
+    }
+
     // Validar que el plan-carrera existe y pertenece al plan
     const planCarrera = await this.planCarreraRepo.findOne({
       where: {
@@ -493,6 +572,112 @@ export class PlanService {
       relations: ['asignatura', 'asignatura.carrera'],
       order: { id_plan_carrera_asignatura: 'ASC' },
     });
+  }
+
+  /**
+   * Obtiene todas las asignaturas de una carrera
+   */
+  async obtenerAsignaturasPorCarrera(idCarrera: number): Promise<Asignatura[]> {
+    // Validar que la carrera existe
+    const carrera = await this.carreraRepo.findOne({
+      where: { id_carrera: idCarrera },
+    });
+
+    if (!carrera) {
+      throw new NotFoundException(`Carrera con ID ${idCarrera} no encontrada`);
+    }
+
+    // Obtener todas las asignaturas de la carrera
+    return await this.asignaturaRepo.find({
+      where: { carrera: { id_carrera: idCarrera } },
+      relations: ['carrera'],
+      order: { codigo_asignatura: 'ASC' },
+    });
+  }
+
+  /**
+   * Obtiene el plan completo con todas sus relaciones (carreras y asignaturas)
+   * en una estructura optimizada para el frontend
+   */
+  async obtenerPlanConDetalles(idPlan: number) {
+    const plan = await this.planRepo.findOne({
+      where: { id_plan: idPlan },
+      relations: [
+        'carreras',
+        'carreras.carrera',
+        'carreras.carrera.departamento',
+        'carreras.asignaturas',
+        'carreras.asignaturas.asignatura',
+        'carreras.asignaturas.asignatura.carrera',
+      ],
+      order: {
+        carreras: {
+          carrera: {
+            nombre_carrera: 'ASC',
+          },
+          asignaturas: {
+            asignatura: {
+              codigo_asignatura: 'ASC',
+            },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      throw new NotFoundException(`Plan con ID ${idPlan} no encontrado`);
+    }
+
+    // Transformar a la estructura esperada
+    return {
+      // Datos del Plan
+      id_plan: plan.id_plan,
+      nombre_plan: plan.nombre_plan,
+      codigo_plan: plan.codigo_plan,
+      año: plan.año,
+      fecha_inicio: plan.fecha_inicio,
+      fecha_fin: plan.fecha_fin,
+      descripcion: plan.descripcion,
+      estado: plan.estado,
+      // Array de carreras con sus asignaturas
+      carreras: plan.carreras?.map((planCarrera) => ({
+        // Datos de PlanCarrera
+        id_plan_carrera: planCarrera.id_plan_carrera,
+        id_plan: planCarrera.plan?.id_plan || idPlan,
+        id_carrera: planCarrera.carrera?.id_carrera,
+        // Relación completa de Carrera
+        carrera: planCarrera.carrera
+          ? {
+              id_carrera: planCarrera.carrera.id_carrera,
+              nombre_carrera: planCarrera.carrera.nombre_carrera,
+              codigo_carrera: planCarrera.carrera.codigo_carrera,
+              id_departamento: planCarrera.carrera.departamento?.id_departamento,
+            }
+          : null,
+        // Array de asignaturas de esta carrera en el plan
+        asignaturas: planCarrera.asignaturas?.map((planCarreraAsig) => ({
+          // Datos de PlanCarreraAsignatura
+          id_plan_carrera_asignatura: planCarreraAsig.id_plan_carrera_asignatura,
+          id_plan_carrera: planCarreraAsig.planCarrera?.id_plan_carrera || planCarrera.id_plan_carrera,
+          id_asignatura: planCarreraAsig.asignatura?.id_asignatura,
+          // Relación completa de Asignatura
+          asignatura: planCarreraAsig.asignatura
+            ? {
+                id_asignatura: planCarreraAsig.asignatura.id_asignatura,
+                nombre_asignatura: planCarreraAsig.asignatura.nombre_asignatura,
+                codigo_asignatura: planCarreraAsig.asignatura.codigo_asignatura,
+                id_carrera: planCarreraAsig.asignatura.carrera?.id_carrera,
+                creditos: planCarreraAsig.asignatura.creditos,
+                horas_semanales: planCarreraAsig.asignatura.horas_semanales,
+                semestre: planCarreraAsig.asignatura.semestre,
+                tipo: planCarreraAsig.asignatura.tipo,
+                estado: planCarreraAsig.asignatura.estado,
+                prerequisitos: planCarreraAsig.asignatura.prerequisitos,
+              }
+            : null,
+        })) || [],
+      })) || [],
+    };
   }
 }
 

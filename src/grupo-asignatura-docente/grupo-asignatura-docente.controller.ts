@@ -3,10 +3,12 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Param,
   Body,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,7 +23,16 @@ import { CreateGrupoAsignaturaDocenteDto } from './dto/create-grupo-asignatura-d
 import { CreateBulkGrupoAsignaturaDocenteDto } from './dto/create-bulk-grupo-asignatura-docente.dto';
 import { UpdateGrupoAsignaturaDocenteDto } from './dto/update-grupo-asignatura-docente.dto';
 import { QueryGrupoAsignaturaDocenteDto } from './dto/query-grupo-asignatura-docente.dto';
+import { CrearVersionInicialDto } from './dto/crear-version-inicial.dto';
+import { EnviarRevisionDto } from './dto/enviar-revision.dto';
+import { RevisarCargaDto } from './dto/revisar-carga.dto';
+import { AprobarFinalDto } from './dto/aprobar-final.dto';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { RolEnum } from 'src/common/enums/roles.enum';
 
 @ApiTags('Grupo-Asignatura-Docente')
 @Controller('grupo-asignatura-docente')
@@ -240,6 +251,142 @@ export class GrupoAsignaturaDocenteController {
   })
   remove(@Param('id') id: string) {
     return this.grupoAsigDocService.remove(+id);
+  }
+
+  // ========== ENDPOINTS PARA FLUJO DE APROBACIÓN Y VERSIONAMIENTO ==========
+
+  @Post('version-inicial')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolEnum.COORDINADOR)
+  @ApiOperation({
+    summary: 'Crear versión inicial de carga docente',
+    description: 'El coordinador de carrera crea una versión inicial de la carga docente',
+  })
+  @ApiCreatedResponse({
+    description: 'Versión inicial creada correctamente',
+  })
+  crearVersionInicial(
+    @Body() dto: CrearVersionInicialDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.grupoAsigDocService.crearVersionInicial(dto, user.id_usuario);
+  }
+
+  @Put(':id/enviar-revision')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolEnum.COORDINADOR)
+  @ApiOperation({
+    summary: 'Enviar carga docente a revisión',
+    description: 'El coordinador envía la carga docente al director de departamento para revisión',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Carga enviada a revisión correctamente',
+  })
+  enviarRevision(
+    @Param('id') id: string,
+    @Body() dto: EnviarRevisionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.grupoAsigDocService.enviarRevision(+id, dto, user.id_usuario);
+  }
+
+  @Put(':id/revisar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolEnum.DIRECTORES)
+  @ApiOperation({
+    summary: 'Revisar carga docente',
+    description: 'El director de departamento revisa y aprueba/rechaza la carga docente',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Carga revisada correctamente',
+  })
+  revisarCarga(
+    @Param('id') id: string,
+    @Body() dto: RevisarCargaDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.grupoAsigDocService.revisarCarga(+id, dto, user.id_usuario);
+  }
+
+  @Put(':id/aprobar-final')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolEnum.ADMINISTRADOR)
+  @ApiOperation({
+    summary: 'Aprobar carga docente final',
+    description: 'El administrador da la aprobación final a la carga docente',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Carga aprobada final correctamente',
+  })
+  aprobarFinal(
+    @Param('id') id: string,
+    @Body() dto: AprobarFinalDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.grupoAsigDocService.aprobarFinal(+id, dto, user.id_usuario);
+  }
+
+  @Get(':id/versiones')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Obtener historial de versiones',
+    description: 'Obtiene todas las versiones de una carga docente',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial de versiones',
+  })
+  obtenerVersiones(@Param('id') id: string) {
+    return this.grupoAsigDocService.obtenerVersiones(+id);
+  }
+
+  @Get(':id/versiones/:v1/compare/:v2')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Comparar dos versiones',
+    description: 'Compara dos versiones de una carga docente y muestra las diferencias',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiParam({ name: 'v1', description: 'Número de versión 1', type: Number })
+  @ApiParam({ name: 'v2', description: 'Número de versión 2', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Comparación de versiones',
+  })
+  compararVersiones(
+    @Param('id') id: string,
+    @Param('v1') v1: string,
+    @Param('v2') v2: string,
+  ) {
+    return this.grupoAsigDocService.compararVersiones(+id, +v1, +v2);
+  }
+
+  @Post(':id/restaurar-version/:versionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(RolEnum.COORDINADOR, RolEnum.ADMINISTRADOR)
+  @ApiOperation({
+    summary: 'Restaurar a una versión anterior',
+    description: 'Restaura una carga docente a una versión anterior',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
+  @ApiParam({ name: 'versionId', description: 'ID de la versión a restaurar', type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Versión restaurada correctamente',
+  })
+  restaurarVersion(
+    @Param('id') id: string,
+    @Param('versionId') versionId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.grupoAsigDocService.restaurarVersion(+id, +versionId, user.id_usuario);
   }
 }
 

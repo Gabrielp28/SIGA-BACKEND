@@ -32,5 +32,11 @@ export class CreateExperienciaLaboralDto {
   @IsString()
   @IsOptional()
   descripcion_funciones?: string;
+
+  @ApiProperty({ description: 'URL del documento de la experiencia laboral', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  documento_url?: string;
 }
 

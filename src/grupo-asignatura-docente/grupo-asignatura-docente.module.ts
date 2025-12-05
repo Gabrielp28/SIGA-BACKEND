@@ -8,6 +8,8 @@ import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { Docente } from 'src/common/entities/docentes.entity';
 import { PlanCarrera } from 'src/common/entities/plan_carrera.entity';
 import { PlanCarreraAsignatura } from 'src/common/entities/plan_carrera_asignatura.entity';
+import { CargaDocenteVersion } from 'src/common/entities/carga_docente_version.entity';
+import { Usuario } from 'src/common/entities/usuarios.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PlanCarreraAsignatura } from 'src/common/entities/plan_carrera_asignatu
       Docente,
       PlanCarrera,
       PlanCarreraAsignatura,
+      CargaDocenteVersion,
+      Usuario,
     ]),
   ],
   controllers: [GrupoAsignaturaDocenteController],

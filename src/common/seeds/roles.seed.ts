@@ -7,6 +7,11 @@ export async function seedRoles(dataSource: DataSource): Promise<void> {
 
   const roles = [
     {
+      nombre_rol: RolEnum.ADMINISTRADOR,
+      descripcion: 'Rol de administrador del sistema',
+      nivel_acceso: 4,
+    },
+    {
       nombre_rol: RolEnum.COORDINADOR,
       descripcion: 'Rol de coordinador académico',
       nivel_acceso: 3,

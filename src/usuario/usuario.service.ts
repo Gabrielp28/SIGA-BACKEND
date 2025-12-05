@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not } from 'typeorm';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { AsignarRolDto } from './dto/asignar-rol.dto';
@@ -167,7 +167,8 @@ export class UsuarioService {
   }
 
   /**
-   * Asigna un rol a un usuario
+   * Asigna un rol a un usuario (solo un rol activo por usuario)
+   * Si el usuario ya tiene un rol activo, se desactiva antes de asignar el nuevo
    */
   async asignarRol(idUsuario: number, asignarRolDto: AsignarRolDto): Promise<UsuarioRol> {
     // Validar que el usuario existe
@@ -185,7 +186,18 @@ export class UsuarioService {
       throw new NotFoundException(`Rol con ID ${asignarRolDto.id_rol} no encontrado`);
     }
 
-    // Validar que el usuario no tenga ya este rol asignado
+    // Desactivar todos los roles activos del usuario (solo un rol activo por usuario)
+    await this.usuarioRolRepository.update(
+      {
+        id_usuario: idUsuario,
+        estado: 'activo',
+      },
+      {
+        estado: 'inactivo',
+      },
+    );
+
+    // Verificar si ya existe una asignación (aunque esté inactiva) para reutilizarla
     const rolExistente = await this.usuarioRolRepository.findOne({
       where: {
         id_usuario: idUsuario,
@@ -193,20 +205,23 @@ export class UsuarioService {
       },
     });
 
+    let usuarioRol: UsuarioRol;
+
     if (rolExistente) {
-      throw new ConflictException(
-        `El usuario ya tiene asignado el rol ${rol.nombre_rol}`,
-      );
+      // Reactivar la asignación existente
+      rolExistente.estado = asignarRolDto.estado || 'activo';
+      usuarioRol = await this.usuarioRolRepository.save(rolExistente);
+    } else {
+      // Crear nueva asignación
+      usuarioRol = this.usuarioRolRepository.create({
+        id_usuario: idUsuario,
+        id_rol: asignarRolDto.id_rol,
+        estado: asignarRolDto.estado || 'activo',
+      });
+      usuarioRol = await this.usuarioRolRepository.save(usuarioRol);
     }
 
-    // Crear la asignación
-    const usuarioRol = this.usuarioRolRepository.create({
-      id_usuario: idUsuario,
-      id_rol: asignarRolDto.id_rol,
-      estado: asignarRolDto.estado || 'activo',
-    });
-
-    return await this.usuarioRolRepository.save(usuarioRol);
+    return usuarioRol;
   }
 
   /**
@@ -267,6 +282,25 @@ export class UsuarioService {
 
     // Actualizar estado si se proporciona
     if (actualizarRolDto.estado !== undefined) {
+      // Si se está activando un rol, desactivar todos los demás roles activos del usuario
+      if (actualizarRolDto.estado === 'activo') {
+        const otrosRolesActivos = await this.usuarioRolRepository.find({
+          where: {
+            id_usuario: idUsuario,
+            estado: 'activo',
+            id_usuario_rol: Not(idUsuarioRol), // Excluir el rol actual
+          },
+        });
+
+        if (otrosRolesActivos.length > 0) {
+          await this.usuarioRolRepository.update(
+            otrosRolesActivos.map((r) => r.id_usuario_rol),
+            {
+              estado: 'inactivo',
+            },
+          );
+        }
+      }
       usuarioRol.estado = actualizarRolDto.estado;
     }
 
