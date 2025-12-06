@@ -6,6 +6,7 @@ import { Docente } from 'src/common/entities/docentes.entity';
 import { Carrera } from 'src/common/entities/carreras.entity';
 import { Plan } from 'src/common/entities/planes.entity';
 import { GrupoAsignaturaDocente } from 'src/common/entities/grupo_asignatura_docente.entity';
+import { Asignatura } from 'src/common/entities/asignaturas.entity';
 import { CreateGrupoDto } from './dto/create-grupo.dto';
 import { UpdateGrupoDto } from './dto/update-grupo.dto';
 import { QueryGrupoDto } from './dto/query-grupo.dto';
@@ -23,6 +24,8 @@ export class GrupoService {
     private readonly planRepo: Repository<Plan>,
     @InjectRepository(GrupoAsignaturaDocente)
     private readonly grupoAsigDocRepo: Repository<GrupoAsignaturaDocente>,
+    @InjectRepository(Asignatura)
+    private readonly asignaturaRepo: Repository<Asignatura>,
   ) {}
 
   async create(createDto: CreateGrupoDto): Promise<Grupo> {
@@ -469,5 +472,44 @@ export class GrupoService {
   async remove(id: number): Promise<void> {
     const grupo = await this.findOne(id);
     await this.grupoRepo.remove(grupo);
+  }
+
+  /**
+   * Limpia (elimina) todos los registros de las tablas:
+   * - GrupoAsignaturaDocente
+   * - Grupo
+   * - Asignatura
+   * - Carrera
+   * 
+   * Se eliminan en el orden correcto para respetar las foreign keys
+   */
+  async limpiarRegistros(): Promise<{
+    grupoAsignaturaDocente: number;
+    grupos: number;
+    asignaturas: number;
+    carreras: number;
+  }> {
+    // 1. Eliminar primero GrupoAsignaturaDocente (tabla intermedia)
+    const grupoAsigDocCount = await this.grupoAsigDocRepo.count();
+    await this.grupoAsigDocRepo.delete({});
+
+    // 2. Eliminar Grupos
+    const gruposCount = await this.grupoRepo.count();
+    await this.grupoRepo.delete({});
+
+    // 3. Eliminar Asignaturas
+    const asignaturasCount = await this.asignaturaRepo.count();
+    await this.asignaturaRepo.delete({});
+
+    // 4. Eliminar Carreras
+    const carrerasCount = await this.carreraRepo.count();
+    await this.carreraRepo.delete({});
+
+    return {
+      grupoAsignaturaDocente: grupoAsigDocCount,
+      grupos: gruposCount,
+      asignaturas: asignaturasCount,
+      carreras: carrerasCount,
+    };
   }
 }

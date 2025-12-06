@@ -169,5 +169,28 @@ export class GrupoController {
   remove(@Param('id') id: string) {
     return this.grupoService.remove(+id);
   }
+
+  @Delete('limpiar/todos')
+  @Public()
+  @ApiOperation({
+    summary: 'Limpiar registros de tablas relacionadas',
+    description: 'Elimina todos los registros de GrupoAsignaturaDocente, Grupos, Asignaturas y Carreras. Se eliminan en el orden correcto para respetar las foreign keys.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Registros eliminados correctamente',
+    schema: {
+      type: 'object',
+      properties: {
+        grupoAsignaturaDocente: { type: 'number', example: 10 },
+        grupos: { type: 'number', example: 5 },
+        asignaturas: { type: 'number', example: 20 },
+        carreras: { type: 'number', example: 3 },
+      },
+    },
+  })
+  limpiarRegistros() {
+    return this.grupoService.limpiarRegistros();
+  }
 }
 

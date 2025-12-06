@@ -698,11 +698,6 @@ export class GrupoAsignaturaDocenteService {
   ): Promise<GrupoAsignaturaDocente> {
     const grupoAsigDoc = await this.findOne(id);
 
-    // Validar que el usuario es el coordinador que creó la versión
-    if (grupoAsigDoc.coordinador_carrera?.id_usuario !== idUsuario) {
-      throw new ForbiddenException('Solo el coordinador que creó esta carga puede enviarla a revisión');
-    }
-
     // Validar estado
     if (grupoAsigDoc.estado_aprobacion !== 'borrador') {
       throw new BadRequestException(
