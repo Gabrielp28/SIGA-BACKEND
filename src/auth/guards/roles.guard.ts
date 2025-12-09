@@ -23,7 +23,17 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    return requiredRoles.some((role) => user.roles.includes(role));
+    // Asegurar que user.roles es un array
+    const userRoles = Array.isArray(user.roles) ? user.roles : [user.roles];
+
+    // Comparar roles (case-insensitive para mayor flexibilidad)
+    return requiredRoles.some((role) =>
+      userRoles.some(
+        (userRole) =>
+          userRole?.toLowerCase() === role?.toLowerCase() ||
+          userRole === role,
+      ),
+    );
   }
 }
 

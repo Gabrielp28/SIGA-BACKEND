@@ -741,11 +741,16 @@ export class GrupoAsignaturaDocenteService {
     }
 
     const tieneRolDirector = usuario.usuarioRoles?.some(
-      (ur) => ur.rol?.nombre_rol === RolEnum.DIRECTORES && ur.estado === 'activo',
+      (ur) =>
+        (ur.rol?.nombre_rol === RolEnum.DIRECTORES ||
+          ur.rol?.nombre_rol === RolEnum.JEFE_DEPARTAMENTO) &&
+        ur.estado === 'activo',
     );
 
     if (!tieneRolDirector) {
-      throw new ForbiddenException('Solo los directores de departamento pueden revisar cargas');
+      throw new ForbiddenException(
+        'Solo los directores de departamento o jefes de departamento pueden revisar cargas',
+      );
     }
 
     // Validar estado

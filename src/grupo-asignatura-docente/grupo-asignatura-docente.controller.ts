@@ -294,10 +294,10 @@ export class GrupoAsignaturaDocenteController {
 
   @Put(':id/revisar')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolEnum.DIRECTORES)
+  @Roles(RolEnum.DIRECTORES, RolEnum.JEFE_DEPARTAMENTO)
   @ApiOperation({
     summary: 'Revisar carga docente',
-    description: 'El director de departamento revisa y aprueba/rechaza la carga docente',
+    description: 'El director de departamento o jefe de departamento revisa y aprueba/rechaza la carga docente',
   })
   @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
   @ApiResponse({

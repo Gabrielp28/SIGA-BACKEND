@@ -1,6 +1,7 @@
 export enum RolEnum {
-  COORDINADOR = 'coordinador',
-  DIRECTORES = 'directores',
+  COORDINADOR = 'Coordinador de carrera',
+  DIRECTORES = 'Director departamento',
+  JEFE_DEPARTAMENTO = 'Jefe departamento',
   DOCENTES = 'docentes',
   ADMINISTRADOR = 'administrador',
 }
