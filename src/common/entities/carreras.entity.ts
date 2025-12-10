@@ -10,6 +10,7 @@ import { Departamento } from './departamentos.entity';
 import { Asignatura } from './asignaturas.entity';
 import { Grupo } from './grupos.entity';
 import { PlanCarrera } from './plan_carrera.entity';
+import { Usuario } from './usuarios.entity';
 
 @Entity('Tbl_Carreras')
 export class Carrera {
@@ -19,6 +20,10 @@ export class Carrera {
   @ManyToOne(() => Departamento)
   @JoinColumn({ name: 'id_departamento' })
   departamento: Departamento;
+
+  @ManyToOne(() => Usuario, { nullable: true })
+  @JoinColumn({ name: 'id_coordinador' })
+  coordinador: Usuario | null;
 
   @Column({ length: 200 })
   nombre_carrera: string;

@@ -8,6 +8,17 @@ id_departamento: number;
 nombre_departamento: string;
 }
 
+export class CoordinadorDto {
+@ApiProperty({ example: 1 })
+id_usuario: number;
+
+@ApiProperty({ example: 'coordinador1' })
+username: string;
+
+@ApiProperty({ example: 'coordinador@example.com' })
+email: string;
+}
+
 export class AsignaturaDto {
 @ApiProperty({ example: 1 })
 id_asignatura: number;
@@ -40,6 +51,9 @@ estado: string;
 
 @ApiProperty({ type: DepartamentoDto })
 departamento: DepartamentoDto;
+
+@ApiProperty({ type: CoordinadorDto, required: false })
+coordinador?: CoordinadorDto;
 
 @ApiProperty({ type: [AsignaturaDto], required: false })
 asignaturas?: AsignaturaDto[];

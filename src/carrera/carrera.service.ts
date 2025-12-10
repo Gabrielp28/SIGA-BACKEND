@@ -9,6 +9,8 @@ import { Carrera } from 'src/common/entities/carreras.entity';
 import { CreateCarreraDto } from './dto/create-carrera.dto';
 import { UpdateCarreraDto } from './dto/update-carrera.dto';
 import { Departamento } from 'src/common/entities/departamentos.entity';
+import { Usuario } from 'src/common/entities/usuarios.entity';
+import { UsuarioRol } from 'src/common/entities/usuarios_roles.entity';
 
 @Injectable()
 export class CarreraService {
@@ -18,13 +20,19 @@ export class CarreraService {
 
     @InjectRepository(Departamento)
     private readonly departamentoRepository: Repository<Departamento>,
+
+    @InjectRepository(Usuario)
+    private readonly usuarioRepository: Repository<Usuario>,
+
+    @InjectRepository(UsuarioRol)
+    private readonly usuarioRolRepository: Repository<UsuarioRol>,
   ) {}
 
 
   //Crear una nueva carrera
 
   async create(createCarreraDto: CreateCarreraDto) {
-    const { codigo_carrera, id_departamento } = createCarreraDto;
+    const { codigo_carrera, id_departamento, id_coordinador } = createCarreraDto;
 
     // Validar código único
 
@@ -48,11 +56,38 @@ export class CarreraService {
       );
     }
 
+    // Validar y obtener coordinador si se proporciona
+    let coordinador: Usuario | null = null;
+    if (id_coordinador) {
+      coordinador = await this.usuarioRepository.findOne({
+        where: { id_usuario: id_coordinador },
+        relations: ['usuarioRoles', 'usuarioRoles.rol'],
+      });
+
+      if (!coordinador) {
+        throw new NotFoundException(
+          `Usuario con ID ${id_coordinador} no encontrado`,
+        );
+      }
+
+      // Validar que el usuario tenga el rol de Coordinador de carrera (id_rol: 2)
+      const tieneRolCoordinador = coordinador.usuarioRoles?.some(
+        (ur) => ur.rol?.id_rol === 2 && ur.estado === 'activo',
+      );
+
+      if (!tieneRolCoordinador) {
+        throw new BadRequestException(
+          `El usuario con ID ${id_coordinador} no tiene el rol de Coordinador de carrera activo`,
+        );
+      }
+    }
+
     // Crear nueva carrera
 
     const carrera = this.carreraRepository.create({
       ...createCarreraDto,
       departamento,
+      coordinador,
     });
 
     const nuevaCarrera = await this.carreraRepository.save(carrera);
@@ -63,11 +98,11 @@ export class CarreraService {
   }
 
 
-  //Obtener todas las carreras con su departamento
+  //Obtener todas las carreras con su departamento y coordinador
 
   async findAll() {
     const carreras = await this.carreraRepository.find({
-      relations: ['departamento'],
+      relations: ['departamento', 'coordinador'],
       order: { id_carrera: 'ASC' },
     });
     return {
@@ -81,7 +116,7 @@ export class CarreraService {
   async findOne(id: number) {
     const carrera = await this.carreraRepository.findOne({
       where: { id_carrera: id },
-      relations: ['departamento', 'asignaturas'],
+      relations: ['departamento', 'coordinador', 'asignaturas'],
     });
 
     if (!carrera) {
@@ -99,7 +134,7 @@ export class CarreraService {
   async update(id: number, updateCarreraDto: UpdateCarreraDto) {
     const carrera = await this.carreraRepository.findOne({
       where: { id_carrera: id },
-      relations: ['departamento'],
+      relations: ['departamento', 'coordinador'],
     });
 
     if (!carrera) {
@@ -134,10 +169,41 @@ export class CarreraService {
       departamento = nuevoDepartamento;
     }
 
+    // Validar y actualizar coordinador si se proporciona
+    let coordinador: Usuario | null = carrera.coordinador;
+    if (updateCarreraDto.id_coordinador !== undefined) {
+      if (updateCarreraDto.id_coordinador === null) {
+        coordinador = null;
+      } else {
+        coordinador = await this.usuarioRepository.findOne({
+          where: { id_usuario: updateCarreraDto.id_coordinador },
+          relations: ['usuarioRoles', 'usuarioRoles.rol'],
+        });
+
+        if (!coordinador) {
+          throw new NotFoundException(
+            `Usuario con ID ${updateCarreraDto.id_coordinador} no encontrado`,
+          );
+        }
+
+        // Validar que el usuario tenga el rol de Coordinador de carrera (id_rol: 2)
+        const tieneRolCoordinador = coordinador.usuarioRoles?.some(
+          (ur) => ur.rol?.id_rol === 2 && ur.estado === 'activo',
+        );
+
+        if (!tieneRolCoordinador) {
+          throw new BadRequestException(
+            `El usuario con ID ${updateCarreraDto.id_coordinador} no tiene el rol de Coordinador de carrera activo`,
+          );
+        }
+      }
+    }
+
     const carreraActualizada = await this.carreraRepository.save({
       ...carrera,
       ...updateCarreraDto,
       departamento,
+      coordinador,
     });
 
     return {

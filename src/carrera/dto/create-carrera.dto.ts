@@ -31,4 +31,9 @@ estado?: string;
 @ApiProperty({ description: 'ID del departamento', example: 2 })
 @IsInt()
 id_departamento: number;
+
+@ApiProperty({ description: 'ID del coordinador de carrera (usuario con rol Coordinador de carrera)', example: 1, required: false })
+@IsInt()
+@IsOptional()
+id_coordinador?: number;
 }
