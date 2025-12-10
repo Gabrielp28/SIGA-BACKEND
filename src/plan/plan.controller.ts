@@ -203,12 +203,12 @@ export class PlanController {
   @Post(':id/carreras')
   @Public()
   @ApiOperation({
-    summary: 'Agregar carreras a un plan',
-    description: 'Agrega múltiples carreras a un plan en una sola operación',
+    summary: 'Asignar carrera a un plan',
+    description: 'Asigna una carrera a un plan. Si el plan ya tiene una carrera asignada, se reemplaza por la nueva. Solo una carrera por plan.',
   })
   @ApiParam({ name: 'id', description: 'ID del plan', type: Number })
   @ApiCreatedResponse({
-    description: 'Carreras agregadas (puede incluir errores parciales)',
+    description: 'Carrera asignada al plan correctamente',
   })
   agregarCarreras(@Param('id') id: string, @Body() createDto: CreatePlanCarreraDto) {
     return this.planService.agregarCarreras(+id, createDto);

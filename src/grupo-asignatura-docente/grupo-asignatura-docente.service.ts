@@ -383,6 +383,7 @@ export class GrupoAsignaturaDocenteService {
     const queryBuilder = this.grupoAsigDocRepo
       .createQueryBuilder('grupoAsig')
       .leftJoinAndSelect('grupoAsig.grupo', 'grupo')
+      .leftJoinAndSelect('grupo.carrera', 'carrera')
       .leftJoinAndSelect('grupoAsig.asignatura', 'asignatura')
       .leftJoinAndSelect('grupoAsig.docente', 'docente');
 
@@ -440,7 +441,7 @@ export class GrupoAsignaturaDocenteService {
   async findOne(id: number): Promise<GrupoAsignaturaDocente> {
     const grupoAsig = await this.grupoAsigDocRepo.findOne({
       where: { id_grupo_asignatura_docente: id },
-      relations: ['grupo', 'asignatura', 'docente'],
+      relations: ['grupo', 'grupo.carrera', 'asignatura', 'docente'],
     });
 
     if (!grupoAsig) {
@@ -896,11 +897,17 @@ export class GrupoAsignaturaDocenteService {
     }
 
     const tieneRolAdmin = usuario.usuarioRoles?.some(
-      (ur) => ur.rol?.nombre_rol === RolEnum.ADMINISTRADOR && ur.estado === 'activo',
+      (ur) =>
+        (ur.rol?.nombre_rol === RolEnum.ADMINISTRADOR ||
+          ur.rol?.nombre_rol === RolEnum.DIRECTORES ||
+          ur.rol?.id_rol === 5) &&
+        ur.estado === 'activo',
     );
 
     if (!tieneRolAdmin) {
-      throw new ForbiddenException('Solo los administradores pueden dar aprobación final');
+      throw new ForbiddenException(
+        'Solo los administradores o directores de departamento pueden dar aprobación final',
+      );
     }
 
     // Validar estado

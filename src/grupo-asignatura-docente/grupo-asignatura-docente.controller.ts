@@ -314,10 +314,10 @@ export class GrupoAsignaturaDocenteController {
 
   @Put(':id/aprobar-final')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolEnum.ADMINISTRADOR)
+  @Roles(RolEnum.ADMINISTRADOR, RolEnum.DIRECTORES)
   @ApiOperation({
     summary: 'Aprobar carga docente final',
-    description: 'El administrador da la aprobación final a la carga docente',
+    description: 'El administrador o director de departamento da la aprobación final a la carga docente',
   })
   @ApiParam({ name: 'id', description: 'ID de la carga docente', type: Number })
   @ApiResponse({

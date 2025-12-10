@@ -197,96 +197,64 @@ export class PlanService {
 
   // ========== MÉTODOS PARA CARRERAS ==========
 
+  /**
+   * Asigna una carrera a un plan (solo una carrera por plan)
+   * Si el plan ya tiene una carrera asignada, se elimina antes de asignar la nueva
+   */
   async agregarCarreras(idPlan: number, createDto: CreatePlanCarreraDto) {
     const plan = await this.findOne(idPlan);
 
-    const resultados = {
-      agregadas: [] as PlanCarrera[],
-      errores: [] as Array<{ id_carrera: number; error: string }>,
-      total: createDto.id_carreras.length,
-      exitosas: 0,
-      fallidas: 0,
-    };
+    // Validar que la carrera existe
+    const carrera = await this.carreraRepo.findOne({
+      where: { id_carrera: createDto.id_carrera },
+    });
 
-    for (const idCarrera of createDto.id_carreras) {
-      try {
-        // Validar que la carrera existe
-        const carrera = await this.carreraRepo.findOne({
-          where: { id_carrera: idCarrera },
-        });
-
-        if (!carrera) {
-          resultados.errores.push({
-            id_carrera: idCarrera,
-            error: `Carrera con ID ${idCarrera} no encontrada`,
-          });
-          resultados.fallidas++;
-          continue;
-        }
-
-        // Validar que no esté ya agregada
-        const planCarreraExistente = await this.planCarreraRepo.findOne({
-          where: {
-            plan: { id_plan: idPlan },
-            carrera: { id_carrera: idCarrera },
-          },
-        });
-
-        if (planCarreraExistente) {
-          resultados.errores.push({
-            id_carrera: idCarrera,
-            error: `La carrera ${carrera.nombre_carrera} ya está agregada al plan`,
-          });
-          resultados.fallidas++;
-          continue;
-        }
-
-        // Crear la relación
-        const planCarrera = this.planCarreraRepo.create({
-          plan,
-          carrera,
-        });
-
-        const saved = await this.planCarreraRepo.save(planCarrera);
-        
-        // Recargar con relaciones para la respuesta
-        const planCarreraConRelaciones = await this.planCarreraRepo.findOne({
-          where: { id_plan_carrera: saved.id_plan_carrera },
-          relations: ['carrera', 'plan'],
-        });
-        
-        if (!planCarreraConRelaciones) {
-          throw new Error('Error al recargar la relación plan-carrera');
-        }
-        
-        // Construir respuesta sin el array carreras del plan (es redundante)
-        const respuesta = {
-          id_plan_carrera: planCarreraConRelaciones.id_plan_carrera,
-          plan: {
-            id_plan: planCarreraConRelaciones.plan.id_plan,
-            nombre_plan: planCarreraConRelaciones.plan.nombre_plan,
-            codigo_plan: planCarreraConRelaciones.plan.codigo_plan,
-            año: planCarreraConRelaciones.plan.año,
-            descripcion: planCarreraConRelaciones.plan.descripcion,
-            estado: planCarreraConRelaciones.plan.estado,
-            fecha_inicio: planCarreraConRelaciones.plan.fecha_inicio,
-            fecha_fin: planCarreraConRelaciones.plan.fecha_fin,
-          },
-          carrera: planCarreraConRelaciones.carrera,
-        };
-        
-        resultados.agregadas.push(respuesta as any);
-        resultados.exitosas++;
-      } catch (error) {
-        resultados.errores.push({
-          id_carrera: idCarrera,
-          error: error.message || 'Error desconocido',
-        });
-        resultados.fallidas++;
-      }
+    if (!carrera) {
+      throw new NotFoundException(
+        `Carrera con ID ${createDto.id_carrera} no encontrada`,
+      );
     }
 
-    return resultados;
+    // Eliminar todas las carreras existentes del plan (solo una carrera por plan)
+    await this.planCarreraRepo.delete({
+      plan: { id_plan: idPlan },
+    });
+
+    // Crear la nueva relación
+    const planCarrera = this.planCarreraRepo.create({
+      plan,
+      carrera,
+    });
+
+    const saved = await this.planCarreraRepo.save(planCarrera);
+
+    // Recargar con relaciones para la respuesta
+    const planCarreraConRelaciones = await this.planCarreraRepo.findOne({
+      where: { id_plan_carrera: saved.id_plan_carrera },
+      relations: ['carrera', 'plan'],
+    });
+
+    if (!planCarreraConRelaciones) {
+      throw new Error('Error al recargar la relación plan-carrera');
+    }
+
+    return {
+      message: 'Carrera asignada al plan correctamente',
+      data: {
+        id_plan_carrera: planCarreraConRelaciones.id_plan_carrera,
+        plan: {
+          id_plan: planCarreraConRelaciones.plan.id_plan,
+          nombre_plan: planCarreraConRelaciones.plan.nombre_plan,
+          codigo_plan: planCarreraConRelaciones.plan.codigo_plan,
+          año: planCarreraConRelaciones.plan.año,
+          descripcion: planCarreraConRelaciones.plan.descripcion,
+          estado: planCarreraConRelaciones.plan.estado,
+          fecha_inicio: planCarreraConRelaciones.plan.fecha_inicio,
+          fecha_fin: planCarreraConRelaciones.plan.fecha_fin,
+        },
+        carrera: planCarreraConRelaciones.carrera,
+      },
+    };
   }
 
   async obtenerCarreras(idPlan: number) {
